@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Integração OAuth - Lancei Essa</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            padding: 20px;
+        }
+        .platform {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .platform:last-child {
+            border-bottom: none;
+        }
+        .platform-icon {
+            width: 40px;
+            height: 40px;
+            margin-right: 15px;
+            border-radius: 4px;
+        }
+        .platform-status {
+            margin-left: auto;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        .platform-details {
+            font-size: 12px;
+            margin-top: 5px;
+            color: #6c757d;
+        }
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .expired {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .refreshed {
+            background-color: #cce5ff;
+            color: #004085;
+        }
+        .button {
+            background-color: #4c6ef5;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .button:hover {
+            background-color: #3b5bdb;
+        }
+        .output {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .error {
+            color: #dc3545;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .hidden {
+            display: none;
+        }
+        .tab-container {
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 15px;
+        }
+        .tab {
+            display: inline-block;
+            padding: 8px 15px;
+            cursor: pointer;
+            margin-right: 5px;
+            border-radius: 4px 4px 0 0;
+        }
+        .tab.active {
+            background-color: #4c6ef5;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <h1>Teste de Integração OAuth - Lancei Essa</h1>
+    
+    <div class="card" id="loginCard">
+        <h2>Login</h2>
+        <p>Insira suas credenciais para fazer login:</p>
+        <form id="loginForm">
+            <div>
+                <label for="email">Email:</label>
+                <input type="email" id="email" value="usuario@exemplo.com" required>
+            </div>
+            <div>
+                <label for="password">Senha:</label>
+                <input type="password" id="password" value="senha123" required>
+            </div>
+            <button type="submit" class="button">Login</button>
+        </form>
+        <div id="loginStatus"></div>
+    </div>
+    
+    <div class="card hidden" id="connectionsCard">
+        <h2>Status das Conexões</h2>
+        <div class="tab-container">
+            <div class="tab active" data-tab="status">Status</div>
+            <div class="tab" data-tab="connect">Conectar</div>
+            <div class="tab" data-tab="test">Testar</div>
+        </div>
+        
+        <div class="tab-content active" id="statusTab">
+            <div id="connectionStatusContainer">
+                <p>Verificando status das conexões...</p>
+            </div>
+            <button id="checkAllConnectionsBtn" class="button">Atualizar Status</button>
+        </div>
+        
+        <div class="tab-content" id="connectTab">
+            <h3>Conectar Plataformas</h3>
+            <div class="platform">
+                <img src="https://www.youtube.com/favicon.ico" alt="YouTube" class="platform-icon">
+                <div>
+                    <h3>YouTube</h3>
+                    <p>Conecte seu canal para gerenciar e agendar vídeos</p>
+                </div>
+                <button class="button" data-platform="youtube">Conectar</button>
+            </div>
+            <div class="platform">
+                <img src="https://www.instagram.com/favicon.ico" alt="Instagram" class="platform-icon">
+                <div>
+                    <h3>Instagram</h3>
+                    <p>Conecte sua conta para gerenciar posts e histórias</p>
+                </div>
+                <button class="button" data-platform="instagram">Conectar</button>
+            </div>
+            <div class="platform">
+                <img src="https://twitter.com/favicon.ico" alt="Twitter" class="platform-icon">
+                <div>
+                    <h3>Twitter</h3>
+                    <p>Conecte sua conta para agendar tweets</p>
+                </div>
+                <button class="button" data-platform="twitter">Conectar</button>
+            </div>
+            <div class="platform">
+                <img src="https://www.linkedin.com/favicon.ico" alt="LinkedIn" class="platform-icon">
+                <div>
+                    <h3>LinkedIn</h3>
+                    <p>Conecte sua conta para publicar conteúdo</p>
+                </div>
+                <button class="button" data-platform="linkedin">Conectar</button>
+            </div>
+            <div class="platform">
+                <img src="https://www.spotify.com/favicon.ico" alt="Spotify" class="platform-icon">
+                <div>
+                    <h3>Spotify</h3>
+                    <p>Conecte sua conta para gerenciar podcasts</p>
+                </div>
+                <button class="button" data-platform="spotify">Conectar</button>
+            </div>
+            <div class="platform">
+                <img src="https://www.tiktok.com/favicon.ico" alt="TikTok" class="platform-icon">
+                <div>
+                    <h3>TikTok</h3>
+                    <p>Conecte sua conta para agendar vídeos</p>
+                </div>
+                <button class="button" data-platform="tiktok">Conectar</button>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="testTab">
+            <h3>Testar Conexões</h3>
+            <div>
+                <button id="checkYouTubeDataBtn" class="button">Dados do YouTube</button>
+                <button id="checkTwitterDataBtn" class="button">Dados do Twitter</button>
+                <button id="checkInstagramDataBtn" class="button">Dados do Instagram</button>
+                <button id="checkAllPlatformsBtn" class="button">Verificar Todas</button>
+            </div>
+            <h4>Resultado da Operação</h4>
+            <div class="output" id="testOutput">Selecione uma operação acima</div>
+        </div>
+    </div>
+
+    <script>
+        // Configuração
+        const API_URL = 'http://localhost:5000/api';
+        let accessToken = null;
+        
+        // Seleção de elementos
+        const loginForm = document.getElementById('loginForm');
+        const loginStatus = document.getElementById('loginStatus');
+        const loginCard = document.getElementById('loginCard');
+        const connectionsCard = document.getElementById('connectionsCard');
+        const connectionStatusContainer = document.getElementById('connectionStatusContainer');
+        const checkAllConnectionsBtn = document.getElementById('checkAllConnectionsBtn');
+        const checkYouTubeDataBtn = document.getElementById('checkYouTubeDataBtn');
+        const checkTwitterDataBtn = document.getElementById('checkTwitterDataBtn');
+        const checkInstagramDataBtn = document.getElementById('checkInstagramDataBtn');
+        const checkAllPlatformsBtn = document.getElementById('checkAllPlatformsBtn');
+        const testOutput = document.getElementById('testOutput');
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        // Função para fazer chamadas à API
+        async function callApi(endpoint, method = 'GET', data = null) {
+            const options = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            };
+            
+            if (accessToken) {
+                options.headers['Authorization'] = `Bearer ${accessToken}`;
+            }
+            
+            if (data) {
+                options.body = JSON.stringify(data);
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}${endpoint}`, options);
+                const responseData = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(responseData.message || 'Erro na requisição');
+                }
+                
+                return responseData;
+            } catch (error) {
+                console.error(`Erro na requisição para ${endpoint}:`, error);
+                throw error;
+            }
+        }
+        
+        // Função para login simulado (em produção seria autenticação real)
+        function simulateLogin() {
+            accessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjEyMzQ1Njc4OTAiLCJlbWFpbCI6InVzdWFyaW9AZXhlbXBsby5jb20iLCJpYXQiOjE1MTYyMzkwMjJ9.simulated_token';
+            loginCard.classList.add('hidden');
+            connectionsCard.classList.remove('hidden');
+            checkAllConnections();
+        }
+        
+        // Verificar status de todas as conexões
+        async function checkAllConnections() {
+            try {
+                connectionStatusContainer.innerHTML = '<p>Verificando conexões...</p>';
+                
+                const response = await callApi('/metrics/connections');
+                updateConnectionStatus(response.connections);
+                
+                return response;
+            } catch (error) {
+                connectionStatusContainer.innerHTML = `<p class="error">Erro ao verificar conexões: ${error.message}</p>`;
+                console.error('Erro ao verificar conexões:', error);
+            }
+        }
+        
+        // Formatar o nome da plataforma
+        function formatPlatformName(platform) {
+            const names = {
+                'youtube': 'YouTube',
+                'instagram': 'Instagram',
+                'twitter': 'Twitter',
+                'linkedin': 'LinkedIn',
+                'spotify': 'Spotify',
+                'tiktok': 'TikTok'
+            };
+            return names[platform] || platform.charAt(0).toUpperCase() + platform.slice(1);
+        }
+        
+        // Determinar a classe CSS do status
+        function getStatusClass(connection) {
+            if (!connection.connected) return 'disconnected';
+            if (connection.status === 'refreshed') return 'refreshed';
+            if (connection.expired) return 'expired';
+            return 'connected';
+        }
+        
+        // Determinar o texto do status
+        function getStatusText(connection) {
+            if (!connection.connected) return 'Desconectado';
+            if (connection.status === 'refreshed') return 'Renovado';
+            if (connection.expired) return 'Expirado';
+            return 'Conectado';
+        }
+        
+        // Atualizar a UI com os status de conexão
+        function updateConnectionStatus(connections) {
+            let html = '';
+            
+            for (const platform in connections) {
+                const connection = connections[platform];
+                const statusClass = getStatusClass(connection);
+                const statusText = getStatusText(connection);
+                
+                let details = '';
+                if (connection.connected) {
+                    if (connection.profile) {
+                        if (connection.profile.username) {
+                            details += `Usuário: ${connection.profile.username}`;
+                        } else if (platform === 'youtube' && connection.profile.channel_id) {
+                            details += `Canal ID: ${connection.profile.channel_id}`;
+                        }
+                    }
+                    
+                    if (connection.lastUsed) {
+                        const lastUsed = new Date(connection.lastUsed);
+                        details += details ? ' | ' : '';
+                        details += `Último uso: ${lastUsed.toLocaleDateString()}`;
+                    }
+                }
+                
+                const iconUrl = platform === 'youtube' ? 
+                    'https://www.youtube.com/favicon.ico' : 
+                    `https://www.${platform}.com/favicon.ico`;
+                
+                html += `
+                    <div class="platform">
+                        <img src="${iconUrl}" alt="${formatPlatformName(platform)}" class="platform-icon" onerror="this.src='https://via.placeholder.com/40'">
+                        <div>
+                            <h3>${formatPlatformName(platform)}</h3>
+                            ${details ? `<p class="platform-details">${details}</p>` : ''}
+                        </div>
+                        <span class="platform-status ${statusClass}">
+                            ${statusText}
+                        </span>
+                    </div>
+                `;
+            }
+            
+            connectionStatusContainer.innerHTML = html || '<p>Nenhuma conexão encontrada.</p>';
+        }
+        
+        // Verificar dados específicos de plataformas
+        async function checkPlatformData(platform, endpoint) {
+            try {
+                testOutput.textContent = `Buscando dados do ${formatPlatformName(platform)}...`;
+                
+                const response = await callApi(endpoint);
+                testOutput.textContent = JSON.stringify(response, null, 2);
+                
+                return response;
+            } catch (error) {
+                testOutput.textContent = `Erro: ${error.message}`;
+                testOutput.classList.add('error');
+                console.error(`Erro ao obter dados do ${platform}:`, error);
+            }
+        }
+        
+        // Conectar a uma plataforma
+        async function connectPlatform(platform) {
+            try {
+                const response = await callApi(`/${platform}/auth-url`);
+                
+                if (response.success && response.authUrl) {
+                    window.open(response.authUrl, '_blank');
+                } else {
+                    alert(`Erro ao gerar URL de autenticação: ${response.message || 'Erro desconhecido'}`);
+                }
+            } catch (error) {
+                console.error(`Erro ao conectar ${platform}:`, error);
+                alert(`Erro ao conectar ${platform}: ${error.message}`);
+            }
+        }
+        
+        // Event Listeners
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            simulateLogin(); // Em produção, seria o login real
+        });
+        
+        checkAllConnectionsBtn.addEventListener('click', checkAllConnections);
+        
+        checkYouTubeDataBtn.addEventListener('click', () => {
+            checkPlatformData('YouTube', '/youtube/channel/stats');
+        });
+        
+        checkTwitterDataBtn.addEventListener('click', () => {
+            checkPlatformData('Twitter', '/twitter/user');
+        });
+        
+        checkInstagramDataBtn.addEventListener('click', () => {
+            checkPlatformData('Instagram', '/instagram/metrics');
+        });
+        
+        checkAllPlatformsBtn.addEventListener('click', async () => {
+            try {
+                testOutput.textContent = 'Verificando todas as plataformas...';
+                
+                const response = await callApi('/metrics/connections');
+                testOutput.textContent = JSON.stringify(response, null, 2);
+                
+                // Atualizar também o status das conexões
+                if (response.success) {
+                    updateConnectionStatus(response.connections);
+                }
+            } catch (error) {
+                testOutput.textContent = `Erro: ${error.message}`;
+                console.error('Erro ao verificar plataformas:', error);
+            }
+        });
+        
+        // Botões de conexão de plataformas
+        document.querySelectorAll('.button[data-platform]').forEach(button => {
+            button.addEventListener('click', () => {
+                const platform = button.getAttribute('data-platform');
+                connectPlatform(platform);
+            });
+        });
+        
+        // Navegação por tabs
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remover classe ativa de todas as tabs
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                
+                // Adicionar classe ativa à tab clicada
+                tab.classList.add('active');
+                const tabName = tab.getAttribute('data-tab');
+                document.getElementById(`${tabName}Tab`).classList.add('active');
+            });
+        });
+        
+        // Definir token simulado e inicializar a aplicação
+        document.addEventListener('DOMContentLoaded', () => {
+            // Simular login automático para testes
+            // Em um ambiente real, manteria o form de login
+            if (window.location.search.includes('auto=true')) {
+                simulateLogin();
+            }
+        });
+    </script>
+</body>
+</html>
