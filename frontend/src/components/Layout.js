@@ -8,10 +8,12 @@ import {
 import { 
   Menu as MenuIcon, ChevronLeft, ChevronRight, Dashboard, 
   Mic, Schedule, BarChart, Settings, Person, Logout,
-  Email, ExpandLess, ExpandMore, Help, Share
+  Email, ExpandLess, ExpandMore, Help, Share, 
+  ConnectWithoutContact
 } from '@mui/icons-material';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import NotificationCenter from './NotificationCenter/NotificationCenter';
 
 const drawerWidth = 240;
 
@@ -99,6 +101,7 @@ const Layout = () => {
     { text: 'Episódios', icon: <Mic />, path: '/episodes' },
     { text: 'Publicações', icon: <Schedule />, path: '/publications' },
     { text: 'Redes Sociais', icon: <Share />, path: '/social-media' },
+    { text: 'Status de Conexões', icon: <ConnectWithoutContact />, path: '/connection-status' },
     { 
       text: 'Newsletter', 
       icon: <Email />, 
@@ -128,7 +131,8 @@ const Layout = () => {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Lancei Essa - Sistema de Gestão
           </Typography>
-          <div>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <NotificationCenter />
             <IconButton
               size="large"
               aria-label="account of current user"

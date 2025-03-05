@@ -472,6 +472,15 @@ const startServer = async () => {
   // Em modo de desenvolvimento, não iniciamos os serviços em segundo plano
   console.log('Serviços em segundo plano desativados no modo de desenvolvimento');
   
+  // Iniciar o serviço de verificação de saúde dos tokens
+  try {
+    const autoHealthCheck = require('./services/tokenManager/autoHealthCheck');
+    autoHealthCheck.startHealthCheck();
+    console.log('✅ Sistema de verificação automática de saúde de tokens ativado');
+  } catch (error) {
+    console.warn('⚠️ Sistema de verificação de saúde não pode ser iniciado:', error.message);
+  }
+  
   // Iniciar servidor
   const PORT = process.env.PORT || 5002;
   app.listen(PORT, () => {
