@@ -35,19 +35,17 @@ let checkInterval = null;
  */
 export const checkConnection = async (platform) => {
   try {
-    // Em produção, substituir pelo código abaixo:
-    // const response = await api.get(`/api/${platform}/check-connection`);
-    
-    // Para desenvolvimento, usamos o mock
-    const mockResults = await mockCheckConnections();
-    const mockResult = mockResults[platform];
+    // Usar chamada real da API em vez do mock
+    const response = await api.get(`/${platform}/check-connection`);
+    const result = response.data;
     
     return {
-      connected: mockResult.connected,
-      error: mockResult.error || null,
-      tokenExpiresIn: mockResult.tokenExpiresIn || null,
+      connected: result.connected,
+      error: result.error || null,
+      tokenExpiresIn: result.tokenExpiresIn || null,
       lastCheck: new Date(),
-      profile: mockResult.profile || null,
+      profile: result.channelData || null,
+      channel_id: result.channel_id || null
     };
   } catch (error) {
     console.error(`Erro ao verificar conexão com ${platform}:`, error);
@@ -67,8 +65,22 @@ export const checkConnection = async (platform) => {
  */
 export const checkAllConnections = async () => {
   try {
-    // Para desenvolvimento, usamos o mock
-    const results = await mockCheckConnections();
+    // Usar chamadas reais da API para cada plataforma
+    const results = {};
+    
+    // Verificar cada plataforma individualmente
+    for (const platform of PLATFORMS) {
+      try {
+        results[platform] = await checkConnection(platform);
+      } catch (platformError) {
+        console.error(`Erro ao verificar ${platform}:`, platformError);
+        results[platform] = { 
+          connected: false, 
+          error: platformError.message,
+          lastCheck: new Date()
+        };
+      }
+    }
     
     // Atualizar cache
     connectionStatusCache = { ...results };

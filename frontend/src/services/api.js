@@ -42,7 +42,21 @@ api.interceptors.response.use(
         data: error.response.data
       });
     } else if (error.request) {
-      console.error('[API No Response]', error.request);
+      console.error('[API No Response] A requisição foi feita mas não recebeu resposta:', {
+        url: error.config?.url,
+        method: error.config?.method?.toUpperCase(),
+        baseURL: error.config?.baseURL
+      });
+      
+      // Testar conectividade com o backend
+      fetch('http://localhost:5002/api/auth/status')
+        .then(response => {
+          console.log('[API Connectivity Test] Backend respondeu:', response.status);
+        })
+        .catch(err => {
+          console.error('[API Connectivity Test] Falha ao conectar com backend:', err.message);
+        });
+        
     } else {
       console.error('[API Request Error]', error.message);
     }

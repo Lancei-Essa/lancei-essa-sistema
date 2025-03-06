@@ -1,14 +1,30 @@
 import api from '../api';
 
+// Lista de todas as funções exportadas:
+// - checkYouTubeConnection: Verifica a conexão com YouTube
+// - getYouTubeAuthUrl: Obtém URL de autenticação OAuth
+// - exchangeAuthCode: Troca código de autorização por tokens
+// - uploadToYouTube: Faz upload de vídeo para o YouTube
+// - scheduleYouTubeVideo: Agenda vídeo para publicação
+// - getYouTubeVideoInfo: Obtém informações de um vídeo
+// - getYouTubeChannelStats: Obtém estatísticas do canal
+// - getYouTubeMetrics: Obtém métricas atuais do YouTube
+// - getYouTubeMetricsHistory: Obtém histórico de métricas
+// - checkConnection, getAuthUrl: Aliases para compatibilidade
+
 /**
  * Verifica o status da conexão com YouTube
  * @returns {Promise<Object>} Objeto contendo status da conexão
  */
 export const checkYouTubeConnection = async () => {
   try {
+    // Importante: NÃO incluir '/api' porque a configuração do Axios já incluiu isso no baseURL
+    console.log('[YouTube] Verificando conexão...');
     const response = await api.get('/youtube/check-connection');
+    console.log('[YouTube] Resposta da verificação:', response.data);
     return response.data;
   } catch (error) {
+    console.error('[YouTube] Erro na verificação:', error);
     throw error.response?.data || { success: false, message: 'Erro ao verificar conexão com YouTube' };
   }
 };
@@ -133,6 +149,52 @@ export const getYouTubeChannelStats = async () => {
 };
 
 /**
+ * Obtém métricas do YouTube para visualização em gráficos
+ * @param {Object} options Opções de filtro
+ * @param {string} options.period Período das métricas (30days, 90days, 1year, etc.)
+ * @param {string} options.type Tipo de métricas (views, likes, comments, etc.)
+ * @returns {Promise<Object>} Dados das métricas para exibição
+ */
+export const getYouTubeMetrics = async (options = {}) => {
+  try {
+    const { period = '30days', type = 'views' } = options;
+    
+    console.log('[YouTube] Obtendo métricas atuais...');
+    const response = await api.get('/youtube/metrics', {
+      params: { period, type }
+    });
+    
+    console.log('[YouTube] Resposta recebida da API:', response.data);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { success: false, message: 'Erro ao obter métricas do YouTube' };
+  }
+};
+
+/**
+ * Obtém histórico de métricas do YouTube para análise de tendências
+ * @param {Object} options Opções de filtro
+ * @param {number} options.days Número de dias para atrás (padrão: 30)
+ * @returns {Promise<Object>} Dados históricos de métricas
+ */
+export const getYouTubeMetricsHistory = async (options = {}) => {
+  try {
+    const { days = 30 } = options;
+    
+    console.log('[YouTube] Obtendo histórico de métricas...');
+    const response = await api.get('/youtube/metrics/history', {
+      params: { days }
+    });
+    
+    console.log('[YouTube] Histórico recebido da API:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('[YouTube] Erro ao obter histórico de métricas:', error);
+    throw error.response?.data || { success: false, message: 'Erro ao obter histórico de métricas do YouTube' };
+  }
+};
+
+/**
  * Verifica o status da conexão
  * @returns {Promise<Object>} Status da conexão
  */
@@ -149,6 +211,7 @@ export const getAuthUrl = async () => {
   return response.authUrl;
 };
 
+
 // Exportação padrão para compatibilidade
 const youtubeService = {
   checkConnection,
@@ -157,6 +220,8 @@ const youtubeService = {
   scheduleYouTubeVideo,
   getYouTubeVideoInfo,
   getYouTubeChannelStats,
+  getYouTubeMetrics,
+  getYouTubeMetricsHistory,
   exchangeAuthCode
 };
 

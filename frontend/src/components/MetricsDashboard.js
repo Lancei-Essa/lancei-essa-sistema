@@ -6,41 +6,17 @@ import {
   Tooltip, Select, MenuItem, FormControl, InputLabel, TextField,
   Button
 } from '@mui/material';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import {
   Refresh, Instagram, YouTube, LinkedIn, Twitter, Facebook,
-  TikTok, Timeline, BarChart, Share, Visibility, ThumbUp, Message,
+  Timeline, BarChart, Share, Visibility, ThumbUp, Message,
   CalendarToday, InsertChart, ArrowUpward, ArrowDownward, PeopleAlt
 } from '@mui/icons-material';
-import { Line, Bar, Pie } from 'react-chartjs-2';
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip as ChartTooltip,
-  Legend,
-} from 'chart.js';
+  LineChart, Line, BarChart as RechartsBarChart, Bar,
+  PieChart, Pie, XAxis, YAxis, CartesianGrid, 
+  ResponsiveContainer, Legend, Tooltip as RechartsTooltip
+} from 'recharts';
 import api from '../services/api';
-import { format } from 'date-fns';
-
-// Registrar componentes do Chart.js
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  ChartTooltip,
-  Legend
-);
 
 const MetricsDashboard = () => {
   // Estados
@@ -316,7 +292,7 @@ const MetricsDashboard = () => {
       case 'facebook':
         return <Facebook color="primary" />;
       case 'tiktok':
-        return <TikTok color="secondary" />;
+        return <InsertChart color="secondary" />;
       default:
         return <InsertChart />;
     }
@@ -446,18 +422,26 @@ const MetricsDashboard = () => {
                   Crescimento de Visualizações
                 </Typography>
                 <Box sx={{ height: 300 }}>
-                  <Bar 
-                    data={metrics.trends.views} 
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      scales: {
-                        y: {
-                          beginAtZero: true
-                        }
-                      }
-                    }}
-                  />
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsBarChart
+                      data={metrics.trends.views.labels.map((label, index) => ({
+                        name: label,
+                        visualizacoes: metrics.trends.views.datasets[0].data[index]
+                      }))}
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <RechartsTooltip />
+                      <Legend />
+                      <Bar 
+                        dataKey="visualizacoes" 
+                        name="Visualizações"
+                        fill="#35a2eb" 
+                      />
+                    </RechartsBarChart>
+                  </ResponsiveContainer>
                 </Box>
               </Paper>
             </Grid>
@@ -468,13 +452,25 @@ const MetricsDashboard = () => {
                   Distribuição por Plataforma
                 </Typography>
                 <Box sx={{ height: 300, display: 'flex', justifyContent: 'center' }}>
-                  <Pie 
-                    data={metrics.trends.platforms} 
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false
-                    }}
-                  />
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={metrics.trends.platforms.labels.map((label, index) => ({
+                          name: label,
+                          value: metrics.trends.platforms.datasets[0].data[index]
+                        }))}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={true}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                        nameKey="name"
+                      />
+                      <RechartsTooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </Box>
               </Paper>
             </Grid>
@@ -485,13 +481,42 @@ const MetricsDashboard = () => {
                   Engajamento ao Longo do Tempo
                 </Typography>
                 <Box sx={{ height: 300 }}>
-                  <Line 
-                    data={metrics.trends.engagement} 
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false
-                    }}
-                  />
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={metrics.trends.engagement.labels.map((label, index) => ({
+                        name: label,
+                        curtidas: metrics.trends.engagement.datasets[0].data[index],
+                        comentarios: metrics.trends.engagement.datasets[1].data[index],
+                        compartilhamentos: metrics.trends.engagement.datasets[2].data[index]
+                      }))}
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <RechartsTooltip />
+                      <Legend />
+                      <Line 
+                        type="monotone" 
+                        dataKey="curtidas" 
+                        name="Curtidas"
+                        stroke="#ff6384" 
+                        activeDot={{ r: 8 }} 
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="comentarios" 
+                        name="Comentários"
+                        stroke="#4bc0c0" 
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="compartilhamentos" 
+                        name="Compartilhamentos"
+                        stroke="#ff9f40" 
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </Box>
               </Paper>
             </Grid>
@@ -612,62 +637,51 @@ const MetricsDashboard = () => {
                   Comparação de Desempenho por Plataforma
                 </Typography>
                 <Box sx={{ height: 300 }}>
-                  <Bar 
-                    data={{
-                      labels: ['Visualizações', 'Curtidas', 'Comentários', 'Compartilhamentos'],
-                      datasets: [
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsBarChart
+                      data={[
                         {
-                          label: 'YouTube',
-                          data: [
-                            metrics.platforms.youtube.views,
-                            metrics.platforms.youtube.likes,
-                            metrics.platforms.youtube.comments,
-                            metrics.platforms.youtube.shares
-                          ],
-                          backgroundColor: 'rgba(255, 0, 0, 0.7)'
+                          name: 'Visualizações',
+                          YouTube: metrics.platforms.youtube.views,
+                          Instagram: metrics.platforms.instagram.views,
+                          LinkedIn: metrics.platforms.linkedin.views,
+                          Twitter: metrics.platforms.twitter.views
                         },
                         {
-                          label: 'Instagram',
-                          data: [
-                            metrics.platforms.instagram.views,
-                            metrics.platforms.instagram.likes,
-                            metrics.platforms.instagram.comments,
-                            metrics.platforms.instagram.shares
-                          ],
-                          backgroundColor: 'rgba(138, 58, 185, 0.7)'
+                          name: 'Curtidas',
+                          YouTube: metrics.platforms.youtube.likes,
+                          Instagram: metrics.platforms.instagram.likes,
+                          LinkedIn: metrics.platforms.linkedin.likes,
+                          Twitter: metrics.platforms.twitter.likes
                         },
                         {
-                          label: 'LinkedIn',
-                          data: [
-                            metrics.platforms.linkedin.views,
-                            metrics.platforms.linkedin.likes,
-                            metrics.platforms.linkedin.comments,
-                            metrics.platforms.linkedin.shares
-                          ],
-                          backgroundColor: 'rgba(0, 119, 181, 0.7)'
+                          name: 'Comentários',
+                          YouTube: metrics.platforms.youtube.comments,
+                          Instagram: metrics.platforms.instagram.comments,
+                          LinkedIn: metrics.platforms.linkedin.comments,
+                          Twitter: metrics.platforms.twitter.comments
                         },
                         {
-                          label: 'Twitter',
-                          data: [
-                            metrics.platforms.twitter.views,
-                            metrics.platforms.twitter.likes,
-                            metrics.platforms.twitter.comments,
-                            metrics.platforms.twitter.shares
-                          ],
-                          backgroundColor: 'rgba(29, 161, 242, 0.7)'
+                          name: 'Compartilhamentos',
+                          YouTube: metrics.platforms.youtube.shares,
+                          Instagram: metrics.platforms.instagram.shares,
+                          LinkedIn: metrics.platforms.linkedin.shares,
+                          Twitter: metrics.platforms.twitter.shares
                         }
-                      ]
-                    }}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      scales: {
-                        y: {
-                          beginAtZero: true
-                        }
-                      }
-                    }}
-                  />
+                      ]}
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <RechartsTooltip />
+                      <Legend />
+                      <Bar dataKey="YouTube" fill="rgba(255, 0, 0, 0.7)" />
+                      <Bar dataKey="Instagram" fill="rgba(138, 58, 185, 0.7)" />
+                      <Bar dataKey="LinkedIn" fill="rgba(0, 119, 181, 0.7)" />
+                      <Bar dataKey="Twitter" fill="rgba(29, 161, 242, 0.7)" />
+                    </RechartsBarChart>
+                  </ResponsiveContainer>
                 </Box>
               </Paper>
             </Grid>
@@ -725,13 +739,28 @@ const MetricsDashboard = () => {
                   Crescimento de Seguidores
                 </Typography>
                 <Box sx={{ height: 300 }}>
-                  <Line 
-                    data={metrics.trends.growth} 
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false
-                    }}
-                  />
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={metrics.trends.growth.labels.map((label, index) => ({
+                        name: label,
+                        seguidores: metrics.trends.growth.datasets[0].data[index]
+                      }))}
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <RechartsTooltip />
+                      <Legend />
+                      <Line 
+                        type="monotone" 
+                        dataKey="seguidores" 
+                        name="Seguidores"
+                        stroke="#4bc0c0" 
+                        activeDot={{ r: 8 }} 
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </Box>
               </Paper>
             </Grid>
@@ -742,21 +771,29 @@ const MetricsDashboard = () => {
                   Tendência de Visualizações
                 </Typography>
                 <Box sx={{ height: 300 }}>
-                  <Line 
-                    data={{
-                      ...metrics.trends.views,
-                      datasets: [{
-                        ...metrics.trends.views.datasets[0],
-                        borderColor: 'rgb(53, 162, 235)',
-                        backgroundColor: 'rgba(53, 162, 235, 0.5)',
-                        fill: true
-                      }]
-                    }}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false
-                    }}
-                  />
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={metrics.trends.views.labels.map((label, index) => ({
+                        name: label,
+                        visualizacoes: metrics.trends.views.datasets[0].data[index]
+                      }))}
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <RechartsTooltip />
+                      <Legend />
+                      <Line 
+                        type="monotone" 
+                        dataKey="visualizacoes" 
+                        name="Visualizações"
+                        stroke="rgb(53, 162, 235)" 
+                        fill="rgba(53, 162, 235, 0.5)"
+                        activeDot={{ r: 8 }} 
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </Box>
               </Paper>
             </Grid>
@@ -767,24 +804,31 @@ const MetricsDashboard = () => {
                   Tendência de Engajamento (Curtidas/Visualizações)
                 </Typography>
                 <Box sx={{ height: 300 }}>
-                  <Line 
-                    data={{
-                      labels: ['Semana 1', 'Semana 2', 'Semana 3', 'Semana 4'],
-                      datasets: [
-                        {
-                          label: 'Taxa de Engajamento (%)',
-                          data: [6.2, 6.7, 7.1, 8.0],
-                          borderColor: 'rgb(255, 99, 132)',
-                          backgroundColor: 'rgba(255, 99, 132, 0.5)',
-                          fill: true
-                        }
-                      ]
-                    }}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false
-                    }}
-                  />
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={[
+                        { name: 'Semana 1', taxa: 6.2 },
+                        { name: 'Semana 2', taxa: 6.7 },
+                        { name: 'Semana 3', taxa: 7.1 },
+                        { name: 'Semana 4', taxa: 8.0 }
+                      ]}
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <RechartsTooltip />
+                      <Legend />
+                      <Line 
+                        type="monotone" 
+                        dataKey="taxa" 
+                        name="Taxa de Engajamento (%)"
+                        stroke="rgb(255, 99, 132)" 
+                        fill="rgba(255, 99, 132, 0.5)"
+                        activeDot={{ r: 8 }} 
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </Box>
               </Paper>
             </Grid>
@@ -795,22 +839,32 @@ const MetricsDashboard = () => {
                   Melhores Horários para Publicação
                 </Typography>
                 <Box sx={{ height: 300 }}>
-                  <Bar 
-                    data={{
-                      labels: ['8:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'],
-                      datasets: [
-                        {
-                          label: 'Engajamento por Horário',
-                          data: [4.2, 6.8, 8.1, 5.6, 7.2, 9.5, 8.8, 5.3],
-                          backgroundColor: 'rgba(75, 192, 192, 0.7)'
-                        }
-                      ]
-                    }}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false
-                    }}
-                  />
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsBarChart
+                      data={[
+                        { horario: '8:00', engajamento: 4.2 },
+                        { horario: '10:00', engajamento: 6.8 },
+                        { horario: '12:00', engajamento: 8.1 },
+                        { horario: '14:00', engajamento: 5.6 },
+                        { horario: '16:00', engajamento: 7.2 },
+                        { horario: '18:00', engajamento: 9.5 },
+                        { horario: '20:00', engajamento: 8.8 },
+                        { horario: '22:00', engajamento: 5.3 }
+                      ]}
+                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="horario" />
+                      <YAxis />
+                      <RechartsTooltip />
+                      <Legend />
+                      <Bar 
+                        dataKey="engajamento" 
+                        name="Engajamento por Horário"
+                        fill="rgba(75, 192, 192, 0.7)" 
+                      />
+                    </RechartsBarChart>
+                  </ResponsiveContainer>
                 </Box>
               </Paper>
             </Grid>
@@ -868,22 +922,22 @@ const MetricsDashboard = () => {
             {/* Seletor de datas personalizado */}
             {timeRange === 'custom' && showDatePicker && (
               <Box sx={{ display: 'flex', alignItems: 'center', ml: 2, gap: 2 }}>
-                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <DatePicker
-                    label="Data inicial"
-                    value={startDate}
-                    onChange={(newValue) => setStartDate(newValue)}
-                    renderInput={(params) => <TextField size="small" {...params} />}
-                    slotProps={{ textField: { size: 'small' } }}
-                  />
-                  <DatePicker
-                    label="Data final"
-                    value={endDate}
-                    onChange={(newValue) => setEndDate(newValue)}
-                    renderInput={(params) => <TextField size="small" {...params} />}
-                    slotProps={{ textField: { size: 'small' } }}
-                  />
-                </LocalizationProvider>
+                <TextField
+                  label="Data inicial"
+                  type="date"
+                  size="small"
+                  value={startDate ? startDate.toISOString().split('T')[0] : ''}
+                  onChange={(e) => setStartDate(new Date(e.target.value))}
+                  InputLabelProps={{ shrink: true }}
+                />
+                <TextField
+                  label="Data final"
+                  type="date"
+                  size="small"
+                  value={endDate ? endDate.toISOString().split('T')[0] : ''}
+                  onChange={(e) => setEndDate(new Date(e.target.value))}
+                  InputLabelProps={{ shrink: true }}
+                />
                 <Button 
                   variant="contained" 
                   size="small"

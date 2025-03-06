@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
   Container, Typography, Box, Paper, Grid, Card, CardContent,
-  FormControl, InputLabel, Select, MenuItem
+  FormControl, InputLabel, Select, MenuItem, Tabs, Tab
 } from '@mui/material';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
   ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
 import api from '../services/api';
+import MetricsDashboard from '../components/MetricsDashboard';
+import YouTubeDashboard from '../components/YouTubeDashboard';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
@@ -15,6 +17,7 @@ const Metrics = () => {
   const [timeRange, setTimeRange] = useState('last30days');
   const [platform, setPlatform] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState(0);
   const [metrics, setMetrics] = useState({
     viewsByPlatform: [],
     engagementOverTime: [],
@@ -158,6 +161,21 @@ const Metrics = () => {
           </FormControl>
         </Box>
       </Box>
+      
+      <Tabs 
+        value={activeTab} 
+        onChange={(e, newValue) => setActiveTab(newValue)} 
+        sx={{ mb: 3 }}
+        textColor="primary"
+        indicatorColor="primary"
+      >
+        <Tab label="Dashboard Geral" />
+        <Tab label="YouTube Analytics" />
+      </Tabs>
+      
+      {activeTab === 1 ? (
+        <YouTubeDashboard />
+      ) : (
 
       <Grid container spacing={3}>
         {/* Resumo por plataforma */}
@@ -354,6 +372,7 @@ const Metrics = () => {
           </Paper>
         </Grid>
       </Grid>
+      )}
     </Container>
   );
 };

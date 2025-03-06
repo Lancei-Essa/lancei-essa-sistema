@@ -631,3 +631,253 @@ exports.scheduleVideo = async (req, res) => {
     });
   }
 };
+
+// Obter métricas atuais do YouTube
+exports.getMetrics = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Obter token do YouTube com campos protegidos
+    const youtubeToken = await YouTubeToken.findOne({ user: userId });
+    if (!youtubeToken) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Você não está autenticado no YouTube' 
+      });
+    }
+
+    // Verificar se o token expirou e obter tokens descriptografados
+    let tokens;
+    if (youtubeToken.isExpired()) {
+      try {
+        const tokenDocument = await YouTubeToken.findById(youtubeToken._id).select('+access_token +refresh_token');
+        const decryptedTokens = tokenDocument.getDecryptedTokens();
+        const refreshedTokens = await youtubeService.refreshAccessToken(decryptedTokens.refresh_token);
+        
+        // Atualizar token no banco de dados
+        tokenDocument.access_token = refreshedTokens.access_token;
+        tokenDocument.refresh_token = refreshedTokens.refresh_token || decryptedTokens.refresh_token;
+        tokenDocument.expiry_date = refreshedTokens.expiry_date;
+        tokenDocument.last_refreshed = Date.now();
+        
+        await tokenDocument.save();
+        
+        tokens = {
+          access_token: refreshedTokens.access_token,
+          refresh_token: refreshedTokens.refresh_token || decryptedTokens.refresh_token,
+          expiry_date: refreshedTokens.expiry_date
+        };
+      } catch (refreshError) {
+        console.error('Erro ao renovar token do YouTube:', refreshError);
+        return res.status(401).json({ 
+          success: false, 
+          message: 'Falha ao renovar token do YouTube' 
+        });
+      }
+    } else {
+      // Obter tokens descriptografados
+      const tokenWithSecrets = await YouTubeToken.findById(youtubeToken._id).select('+access_token +refresh_token');
+      tokens = tokenWithSecrets.getDecryptedTokens();
+      
+      // Atualizar último uso
+      tokenWithSecrets.last_used = Date.now();
+      await tokenWithSecrets.save();
+    }
+
+    // Configurar credenciais
+    youtubeService.setCredentials(tokens);
+
+    // Obter informações do canal
+    const channelInfo = await youtubeService.getChannelInfo();
+    if (!channelInfo || !channelInfo.items || channelInfo.items.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Não foi possível obter informações do canal' 
+      });
+    }
+
+    // Obter lista de vídeos do canal
+    const videos = await youtubeService.getChannelVideos();
+    const videosList = videos.items || [];
+
+    // Obter estatísticas de cada vídeo
+    const videoIds = videosList.map(video => video.id.videoId).join(',');
+    const videoStats = videoIds ? await youtubeService.getVideosStats(videoIds) : { items: [] };
+
+    // Combinar informações de vídeos com estatísticas
+    const videosWithStats = videosList.map(video => {
+      const stats = videoStats.items.find(item => item.id === video.id.videoId);
+      return {
+        id: video.id.videoId,
+        title: video.snippet.title,
+        description: video.snippet.description,
+        publishedAt: video.snippet.publishedAt,
+        thumbnail: video.snippet.thumbnails.medium.url,
+        statistics: stats ? stats.statistics : { viewCount: 0, likeCount: 0, commentCount: 0 }
+      };
+    });
+
+    // Obter comentários recentes
+    const recentComments = await youtubeService.getRecentComments();
+
+    // Gerar dados para gráficos
+    const last30Days = Array.from({ length: 6 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (i * 5)); // Intervalos de 5 dias
+      return date.toISOString().split('T')[0];
+    }).reverse();
+
+    // Gerar dados simulados para o gráfico (em uma implementação real, usaríamos dados históricos)
+    const generateRandomMetrics = (baseValue) => {
+      return last30Days.map((_, index) => {
+        // Valores crescentes para simular tendência
+        return Math.floor(baseValue * (1 + (index * 0.15)) * (0.9 + Math.random() * 0.2));
+      });
+    };
+
+    // Calcular métricas totais
+    const channelData = channelInfo.items[0];
+    const totalViews = parseInt(channelData.statistics.viewCount) || 0;
+    const totalSubscribers = parseInt(channelData.statistics.subscriberCount) || 0;
+    const totalVideos = parseInt(channelData.statistics.videoCount) || 0;
+
+    // Calcular totais de likes e comentários dos vídeos
+    const totalLikes = videoStats.items.reduce((sum, video) => 
+      sum + parseInt(video.statistics.likeCount || 0), 0);
+    const totalComments = videoStats.items.reduce((sum, video) => 
+      sum + parseInt(video.statistics.commentCount || 0), 0);
+
+    // Dados completos para retornar
+    const responseData = {
+      success: true,
+      data: {
+        channelInfo: {
+          id: channelData.id,
+          title: channelData.snippet.title,
+          description: channelData.snippet.description,
+          customUrl: channelData.snippet.customUrl,
+          thumbnails: channelData.snippet.thumbnails,
+          statistics: channelData.statistics
+        },
+        totalStats: {
+          views: totalViews,
+          subscribers: totalSubscribers,
+          videos: totalVideos,
+          likes: totalLikes,
+          comments: totalComments
+        },
+        videos: videosWithStats,
+        recentComments: recentComments.items || [],
+        chartData: {
+          labels: last30Days,
+          views: generateRandomMetrics(totalViews / 100),
+          likes: generateRandomMetrics(totalLikes / 20),
+          comments: generateRandomMetrics(totalComments / 10)
+        }
+      }
+    };
+
+    res.json(responseData);
+  } catch (error) {
+    console.error('Erro ao obter métricas do YouTube:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erro ao obter métricas do YouTube', 
+      error: error.message 
+    });
+  }
+};
+
+// Obter histórico de métricas do YouTube
+exports.getMetricsHistory = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { days = 30 } = req.query;
+
+    // Obter token do YouTube com campos protegidos
+    const youtubeToken = await YouTubeToken.findOne({ user: userId });
+    if (!youtubeToken) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Você não está autenticado no YouTube' 
+      });
+    }
+
+    // Verificar se existe modelo para métricas históricas (normalmente criado pelo metricsCollector)
+    // Em uma implementação real, buscaríamos do banco de dados
+    // Para esta implementação, vamos gerar dados simulados
+
+    // Gerar datas para o último período solicitado
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - parseInt(days));
+
+    // Gerar pontos de dados (um por dia)
+    const dataPoints = [];
+    let currentDate = new Date(startDate);
+    
+    while (currentDate <= endDate) {
+      dataPoints.push({
+        date: currentDate.toISOString().split('T')[0],
+        views: Math.floor(Math.random() * 500) + 2000,
+        likes: Math.floor(Math.random() * 50) + 150,
+        comments: Math.floor(Math.random() * 20) + 30,
+        subscribers: Math.floor(Math.random() * 5) + 10
+      });
+      
+      // Avançar para o próximo dia
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Calcular crescimento percentual
+    const growthMetrics = {
+      views: calculateGrowthPercentage(dataPoints, 'views'),
+      likes: calculateGrowthPercentage(dataPoints, 'likes'),
+      comments: calculateGrowthPercentage(dataPoints, 'comments'),
+      subscribers: calculateGrowthPercentage(dataPoints, 'subscribers')
+    };
+
+    res.json({
+      success: true,
+      data: {
+        metrics: dataPoints,
+        growth: growthMetrics,
+        period: {
+          start: startDate.toISOString().split('T')[0],
+          end: endDate.toISOString().split('T')[0]
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Erro ao obter histórico de métricas do YouTube:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erro ao obter histórico de métricas do YouTube', 
+      error: error.message 
+    });
+  }
+};
+
+// Função auxiliar para calcular crescimento percentual
+function calculateGrowthPercentage(dataPoints, metric) {
+  if (!dataPoints || dataPoints.length < 2) {
+    return 0;
+  }
+  
+  // Dividir o período em duas partes para comparação
+  const midPoint = Math.floor(dataPoints.length / 2);
+  
+  // Calcular média da primeira metade
+  const firstHalfSum = dataPoints.slice(0, midPoint).reduce((sum, point) => sum + point[metric], 0);
+  const firstHalfAvg = firstHalfSum / midPoint;
+  
+  // Calcular média da segunda metade
+  const secondHalfSum = dataPoints.slice(midPoint).reduce((sum, point) => sum + point[metric], 0);
+  const secondHalfAvg = secondHalfSum / (dataPoints.length - midPoint);
+  
+  // Calcular percentual de crescimento
+  if (firstHalfAvg === 0) return 0;
+  
+  const growthPercentage = ((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100;
+  return parseFloat(growthPercentage.toFixed(2));
+}

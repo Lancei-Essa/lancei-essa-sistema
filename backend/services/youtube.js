@@ -382,6 +382,285 @@ const getVideoStats = async (videoId) => {
   }
 };
 
+// Obter métricas completas para análise e visualizações
+const getChannelMetrics = async (userId, client = null) => {
+  try {
+    console.log(`[YouTube Service] Obtendo métricas para o usuário: ${userId}`);
+    
+    // Verificar se temos um token válido para este usuário
+    const YouTubeToken = require('../models/YouTubeToken');
+    const tokenDoc = await YouTubeToken.findOne({ user: userId })
+      .select('+access_token +refresh_token');
+    
+    if (!tokenDoc) {
+      throw new Error('Token do YouTube não encontrado para este usuário');
+    }
+    
+    // Verificar se o token expirou
+    if (tokenDoc.isExpired()) {
+      throw new Error('Token expirado. Por favor, reconecte sua conta.');
+    }
+    
+    // Configurar cliente OAuth2
+    const oauthClient = client || oauth2Client;
+    
+    try {
+      // Obter credenciais descriptografadas
+      const decryptedTokens = tokenDoc.getDecryptedTokens();
+      
+      // Configurar credenciais
+      oauthClient.setCredentials({
+        access_token: decryptedTokens.access_token,
+        refresh_token: decryptedTokens.refresh_token
+      });
+      
+      // Criar cliente YouTube com autenticação
+      const authenticatedYoutube = google.youtube({
+        version: 'v3',
+        auth: oauthClient
+      });
+      
+      // Obter informações do canal
+      const channelResponse = await authenticatedYoutube.channels.list({
+        part: 'snippet,statistics,contentDetails',
+        id: tokenDoc.channel_id || 'mine'
+      });
+      
+      if (!channelResponse.data.items || channelResponse.data.items.length === 0) {
+        throw new Error('Canal não encontrado');
+      }
+      
+      const channel = channelResponse.data.items[0];
+      const uploadsPlaylistId = channel.contentDetails.relatedPlaylists.uploads;
+      
+      // Obter lista de vídeos do canal
+      const playlistItemsResponse = await authenticatedYoutube.playlistItems.list({
+        part: 'snippet,contentDetails',
+        playlistId: uploadsPlaylistId,
+        maxResults: 50
+      });
+      
+      const videoIds = playlistItemsResponse.data.items.map(item => 
+        item.contentDetails.videoId
+      );
+      
+      // Obter estatísticas detalhadas dos vídeos
+      let videoStats = [];
+      if (videoIds.length > 0) {
+        const videosResponse = await authenticatedYoutube.videos.list({
+          part: 'snippet,statistics,status',
+          id: videoIds.join(',')
+        });
+        
+        videoStats = videosResponse.data.items.map(video => ({
+          id: video.id,
+          title: video.snippet.title,
+          publishedAt: video.snippet.publishedAt,
+          thumbnail: video.snippet.thumbnails.medium.url,
+          statistics: video.statistics,
+          status: video.status.privacyStatus
+        }));
+      }
+      
+      // Obter dados de comentários para os vídeos mais recentes (limitado a 10)
+      let commentData = [];
+      
+      for (const videoId of videoIds.slice(0, 10)) {
+        try {
+          const commentsResponse = await authenticatedYoutube.commentThreads.list({
+            part: 'snippet',
+            videoId: videoId,
+            maxResults: 20
+          });
+          
+          if (commentsResponse.data.items && commentsResponse.data.items.length > 0) {
+            const videoComments = commentsResponse.data.items.map(comment => ({
+              id: comment.id,
+              videoId: videoId,
+              authorDisplayName: comment.snippet.topLevelComment.snippet.authorDisplayName,
+              authorProfileImageUrl: comment.snippet.topLevelComment.snippet.authorProfileImageUrl,
+              textDisplay: comment.snippet.topLevelComment.snippet.textDisplay,
+              likeCount: comment.snippet.topLevelComment.snippet.likeCount,
+              publishedAt: comment.snippet.topLevelComment.snippet.publishedAt
+            }));
+            
+            commentData.push(...videoComments);
+          }
+        } catch (commentError) {
+          console.warn(`[YouTube Service] Erro ao obter comentários para vídeo ${videoId}:`, commentError.message);
+          // Continuar mesmo com erro em um vídeo específico
+        }
+      }
+      
+      // Agregar dados para gráficos
+      const viewsByDate = {};
+      const likesByDate = {};
+      const commentsByDate = {};
+      
+      videoStats.forEach(video => {
+        const publishDate = new Date(video.publishedAt).toISOString().split('T')[0];
+        
+        viewsByDate[publishDate] = (viewsByDate[publishDate] || 0) + parseInt(video.statistics.viewCount || 0);
+        likesByDate[publishDate] = (likesByDate[publishDate] || 0) + parseInt(video.statistics.likeCount || 0);
+        commentsByDate[publishDate] = (commentsByDate[publishDate] || 0) + parseInt(video.statistics.commentCount || 0);
+      });
+      
+      // Converter para formato de array para gráficos
+      const chartData = {
+        labels: Object.keys(viewsByDate).sort(),
+        views: Object.keys(viewsByDate).sort().map(date => viewsByDate[date]),
+        likes: Object.keys(likesByDate).sort().map(date => likesByDate[date]),
+        comments: Object.keys(commentsByDate).sort().map(date => commentsByDate[date])
+      };
+      
+      // Calcular totais
+      const totalStats = {
+        views: parseInt(channel.statistics.viewCount || 0),
+        likes: videoStats.reduce((sum, video) => sum + parseInt(video.statistics.likeCount || 0), 0),
+        comments: videoStats.reduce((sum, video) => sum + parseInt(video.statistics.commentCount || 0), 0),
+        subscribers: parseInt(channel.statistics.subscriberCount || 0),
+        videos: parseInt(channel.statistics.videoCount || 0)
+      };
+      
+      // Compilar resultados completos
+      const metrics = {
+        channelInfo: {
+          id: channel.id,
+          title: channel.snippet.title,
+          description: channel.snippet.description,
+          thumbnails: channel.snippet.thumbnails,
+          statistics: channel.statistics,
+          customUrl: channel.snippet.customUrl
+        },
+        videos: videoStats,
+        totalStats: totalStats,
+        chartData: chartData,
+        recentComments: commentData
+      };
+      
+      return {
+        success: true,
+        data: metrics
+      };
+      
+    } catch (error) {
+      console.error('[YouTube Service] Erro ao obter métricas:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  } catch (error) {
+    console.error('[YouTube Service] Erro ao inicializar serviço de métricas:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+};
+
+// Obter vídeos do canal
+const getChannelVideos = async (maxResults = 10) => {
+  try {
+    // Obter ID do canal
+    const channelResponse = await getChannelInfo();
+    if (!channelResponse.items || channelResponse.items.length === 0) {
+      throw new Error('Não foi possível obter o ID do canal');
+    }
+    
+    const channelId = channelResponse.items[0].id;
+    
+    // Buscar vídeos do canal
+    const response = await youtube.search.list({
+      part: 'snippet',
+      channelId: channelId,
+      maxResults: maxResults,
+      order: 'date',
+      type: 'video'
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao obter vídeos do canal:', error);
+    throw error;
+  }
+};
+
+// Obter estatísticas de vídeos
+const getVideosStats = async (videoIds) => {
+  try {
+    if (!videoIds) {
+      return { items: [] };
+    }
+    
+    // Buscar estatísticas dos vídeos
+    const response = await youtube.videos.list({
+      part: 'statistics',
+      id: videoIds
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao obter estatísticas dos vídeos:', error);
+    throw error;
+  }
+};
+
+// Obter comentários recentes
+const getRecentComments = async (maxResults = 10) => {
+  try {
+    // Obter vídeos do canal
+    const videos = await getChannelVideos(5);
+    
+    if (!videos.items || videos.items.length === 0) {
+      return { items: [] };
+    }
+    
+    // Array para armazenar todos os comentários
+    let allComments = [];
+    
+    // Buscar comentários para cada vídeo
+    for (const video of videos.items) {
+      try {
+        const videoId = video.id.videoId;
+        const response = await youtube.commentThreads.list({
+          part: 'snippet',
+          videoId: videoId,
+          maxResults: 5
+        });
+        
+        if (response.data.items && response.data.items.length > 0) {
+          const comments = response.data.items.map(item => ({
+            id: item.id,
+            videoId: videoId,
+            authorDisplayName: item.snippet.topLevelComment.snippet.authorDisplayName,
+            authorProfileImageUrl: item.snippet.topLevelComment.snippet.authorProfileImageUrl,
+            textDisplay: item.snippet.topLevelComment.snippet.textDisplay,
+            likeCount: item.snippet.topLevelComment.snippet.likeCount,
+            publishedAt: item.snippet.topLevelComment.snippet.publishedAt
+          }));
+          
+          allComments = [...allComments, ...comments];
+        }
+      } catch (commentError) {
+        console.error(`Erro ao obter comentários para o vídeo ${video.id.videoId}:`, commentError);
+        // Continuar para o próximo vídeo
+      }
+    }
+    
+    // Ordenar por data de publicação (mais recentes primeiro)
+    allComments.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+    
+    // Limitar número de comentários
+    allComments = allComments.slice(0, maxResults);
+    
+    return { items: allComments };
+  } catch (error) {
+    console.error('Erro ao obter comentários recentes:', error);
+    return { items: [] };
+  }
+};
+
 module.exports = {
   getAuthUrl,
   getTokensFromCode,
@@ -392,5 +671,9 @@ module.exports = {
   getChannelInfo,
   getChannelStats,
   scheduleVideo,
-  getVideoStats
+  getVideoStats,
+  getChannelMetrics,
+  getChannelVideos,
+  getVideosStats,
+  getRecentComments
 };

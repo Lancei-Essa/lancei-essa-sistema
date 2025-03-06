@@ -8,9 +8,9 @@ import {
 import { 
   YouTube, CheckCircle, Error, Refresh, 
   CloudUpload, Schedule, Analytics, BarChart,
-  Settings, LinkOff
+  Settings, LinkOff, Visibility, ThumbUp, Comment
 } from '@mui/icons-material';
-import { checkYouTubeConnection, getYouTubeChannelStats, getYouTubeAuthUrl } from '../services/platforms/youtube';
+import { checkYouTubeConnection, getYouTubeChannelStats, getYouTubeAuthUrl, exchangeAuthCode, getYouTubeMetrics } from '../services/platforms/youtube';
 
 const YouTubeConfig = () => {
   const [connected, setConnected] = useState(false);
@@ -29,18 +29,35 @@ const YouTubeConfig = () => {
     setError('');
     try {
       const response = await checkYouTubeConnection();
-      if (response.success) {
-        setConnected(response.connected);
+      console.log('YouTubeConfig: Resposta de verificação:', response);
+      
+      // Verificação rigorosa para garantir que a resposta seja processada corretamente
+      if (response) {
+        // Definir estado connected com base na resposta
+        const isConnected = response.connected === true;
+        console.log('YouTubeConfig: Status de conexão:', isConnected ? 'Conectado' : 'Desconectado');
+        
+        setConnected(isConnected);
         setTokenExpired(response.expired || false);
         
-        // Se conectado, busca estatísticas do canal
-        if (response.connected) {
+        // Se conectado e tiver dados do canal, atualizar o estado
+        if (isConnected && response.channelData) {
+          console.log('YouTubeConfig: Dados do canal recebidos:', response.channelData);
+          setChannelStats(response.channelData);
+        } 
+        // Se conectado mas não tiver dados do canal, buscar separadamente
+        else if (isConnected) {
+          console.log('YouTubeConfig: Conectado, buscando estatísticas separadamente');
           fetchChannelStats();
         }
+      } else {
+        console.warn('YouTubeConfig: Resposta vazia ou inválida');
+        setConnected(false);
       }
     } catch (err) {
       setError('Erro ao verificar conexão com YouTube');
-      console.error('Erro ao verificar conexão:', err);
+      console.error('YouTubeConfig: Erro ao verificar conexão:', err);
+      setConnected(false);
     } finally {
       setLoading(false);
     }
