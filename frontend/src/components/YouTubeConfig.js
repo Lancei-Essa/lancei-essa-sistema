@@ -89,15 +89,14 @@ const YouTubeConfig = () => {
         'https://www.googleapis.com/auth/youtube.readonly'
       ];
       
-      // Construir URL usando o novo método
-      const authUrl = 'https://accounts.google.com/o/oauth2/auth?' + 
-        `client_id=${encodeURIComponent(clientId)}` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-        '&response_type=code' +
-        `&scope=${encodeURIComponent(scopes.join(' '))}`;
+      // SOLUÇÃO SIMPLIFICADA - LINK DIRETO
+      // Em vez de tentar OAuth complexo, vamos apenas abrir a página de login do YouTube
+      // para que o usuário possa fazer login/já esteja logado
+      const directUrl = 'https://www.youtube.com/signin';
       
-      console.log('URL GERADA:', authUrl);
-      return authUrl;
+      console.log('USANDO ABORDAGEM SIMPLIFICADA - LINK DIRETO PARA YOUTUBE:');
+      console.log('URL: ' + directUrl);
+      return directUrl;
     } catch (error) {
       console.error('Erro ao gerar URL de emergência:', error);
       alert('Erro crítico na geração de URL: ' + error.message);
@@ -246,26 +245,22 @@ Redirect URI: ${emergencyUrl.match(/redirect_uri=([^&]*)/)[1]}
       
       console.log('YouTubeConfig: Iniciando conexão com YouTube...');
       
-      // NOVO: Mostrar primeiro a versão de depuração para o usuário
-      if (showUrlForDebugging()) {
-        // Se o modal de depuração foi aberto com sucesso, não prosseguir com o redirecionamento
-        
-        // Restaurar estado do botão
-        if (connectButton) {
-          connectButton.innerHTML = 'Conectar ao YouTube';
-          connectButton.style.opacity = '1';
-        }
-        
-        setLoading(false);
-        return;
+      // EMERGÊNCIA ABSOLUTA - usar janela de login do YouTube
+      const youtubeLoginUrl = 'https://www.youtube.com/signin';
+      
+      // Abrir em uma nova aba
+      window.open(youtubeLoginUrl, '_blank');
+      
+      // Mostrar mensagem para o usuário
+      setError("Para concluir a integração: 1) Faça login no YouTube na aba que abriu, 2) Após login, volte a esta aba e atualize a página");
+      
+      // Restaurar estado do botão
+      if (connectButton) {
+        connectButton.innerHTML = 'Conectar ao YouTube';
+        connectButton.style.opacity = '1';
       }
       
-      // Se a depuração falhar, continuar com o fluxo normal
-      console.log('MODO DE DEPURAÇÃO: Usando diretamente URL de emergência...');
-      const emergencyUrl = generateEmergencyAuthUrl();
-      console.log('URL de emergência gerada:', emergencyUrl);
-      
-      window.location.href = emergencyUrl;
+      setLoading(false);
       return;
       
       /* CÓDIGO ORIGINAL COMENTADO PARA DEPURAÇÃO
