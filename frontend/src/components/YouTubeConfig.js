@@ -149,8 +149,49 @@ const YouTubeConfig = () => {
       title.innerText = 'Informações de Depuração YouTube OAuth';
       
       const urlInfo = document.createElement('div');
+      
+      // Tentar buscar informações de diagnóstico da API
+      const apiTestBtn = document.createElement('button');
+      apiTestBtn.innerText = 'Testar API e Mostrar Diagnóstico Completo';
+      apiTestBtn.style.marginBottom = '10px';
+      apiTestBtn.style.padding = '8px 16px';
+      apiTestBtn.style.backgroundColor = '#007bff';
+      apiTestBtn.style.color = 'white';
+      apiTestBtn.style.border = 'none';
+      apiTestBtn.style.borderRadius = '4px';
+      apiTestBtn.style.cursor = 'pointer';
+      
+      apiTestBtn.onclick = async () => {
+        try {
+          const diagArea = document.getElementById('api-diag-area');
+          if (diagArea) {
+            diagArea.innerText = 'Buscando informações da API...';
+          }
+          
+          // Realizar chamada de diagnóstico para a API
+          const authUrl = await getYouTubeAuthUrl();
+          document.getElementById('api-diag-area').innerHTML = `
+            <div style="padding: 10px; background-color: #dff0d8; border: 1px solid #3c763d; margin-top: 10px;">
+              <p style="color: #3c763d; font-weight: bold;">✅ API funcionou corretamente!</p>
+              <p>URL retornada: ${authUrl}</p>
+            </div>
+          `;
+        } catch (error) {
+          console.error('Erro de diagnóstico:', error);
+          
+          // Formatar o erro de uma maneira legível
+          const errorJson = JSON.stringify(error, null, 2);
+          document.getElementById('api-diag-area').innerHTML = `
+            <div style="padding: 10px; background-color: #f2dede; border: 1px solid #a94442; margin-top: 10px;">
+              <p style="color: #a94442; font-weight: bold;">❌ Erro na API</p>
+              <pre style="white-space: pre-wrap; word-break: break-word; background: #f8f8f8; padding: 10px; max-height: 200px; overflow: auto; font-size: 12px;">${errorJson}</pre>
+            </div>
+          `;
+        }
+      };
+      
       urlInfo.innerHTML = `
-        <p><strong>URL de Autorização:</strong></p>
+        <p><strong>URL de Autorização (gerado localmente):</strong></p>
         <textarea style="width:100%; height:80px; font-family:monospace; margin-bottom:10px">${emergencyUrl}</textarea>
         
         <p><strong>Informações do ambiente:</strong></p>
@@ -161,17 +202,23 @@ Browser: ${navigator.userAgent}
 Redirect URI: ${emergencyUrl.match(/redirect_uri=([^&]*)/)[1]}
         </pre>
         
+        <div id="api-diag-area" style="margin-top: 10px; min-height: 40px;">
+          Clique no botão acima para testar a API e ver o diagnóstico completo.
+        </div>
+        
         <p style="margin-top:20px"><strong>Instruções:</strong></p>
         <ol>
-          <li>Copie o URL acima</li>
-          <li>Abra em uma nova aba</li>
-          <li>Autorize o acesso</li>
-          <li>Observe o redirecionamento</li>
+          <li>Clique em "Testar API" para ver o diagnóstico completo do backend</li>
+          <li>Se a API falhar, use o URL gerado localmente acima</li>
+          <li>Copie o URL e abra em uma nova aba</li>
+          <li>Autorize o acesso e observe o redirecionamento</li>
         </ol>
         
-        <button id="copyUrlBtn" style="margin-top:10px; padding:5px 10px">Copiar URL</button>
-        <button id="openUrlBtn" style="margin-top:10px; margin-left:10px; padding:5px 10px">Abrir URL</button>
+        <button id="copyUrlBtn" style="margin-top:10px; padding:5px 10px">Copiar URL Local</button>
+        <button id="openUrlBtn" style="margin-top:10px; margin-left:10px; padding:5px 10px">Abrir URL Local</button>
       `;
+      
+      debugDiv.insertBefore(apiTestBtn, debugDiv.firstChild);
       
       debugDiv.appendChild(closeBtn);
       debugDiv.appendChild(title);

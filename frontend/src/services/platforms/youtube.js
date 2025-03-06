@@ -61,10 +61,24 @@ export const getYouTubeAuthUrl = async () => {
         console.error('[YouTube] Erro ao obter diagnóstico:', diagError);
       }
       
-      throw error.response?.data || { 
-        success: false, 
-        message: 'Erro ao obter URL de autorização (métodos padrão e simplificado falharam)',
-        originalError: error.message 
+      // Extrair detalhes máximos do erro para enviar para o frontend
+      const errorData = error.response?.data || {};
+      
+      // Construir objeto de erro detalhado para diagnóstico
+      throw {
+        success: false,
+        message: 'Erro ao obter URL de autorização',
+        errorType: 'API_ERROR',
+        apiResponse: errorData,
+        originalError: error.message,
+        errorDetail: errorData.errorDetail || error.message,
+        debug: {
+          ...errorData.debug,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          axiosError: error.toString(),
+          timestamp: new Date().toISOString()
+        }
       };
     }
   }
