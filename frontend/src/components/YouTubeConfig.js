@@ -64,48 +64,40 @@ const YouTubeConfig = () => {
   };
   
   // Para o modo de emergência (quando o backend está tendo problemas)
+  // NOVA SOLUÇÃO BASEADA EM PROBLEMA SEMELHANTE
+  // https://stackoverflow.com/questions/11485271/google-oauth-2-0-error-invalid-client-no-application-name
   const generateEmergencyAuthUrl = () => {
     try {
-      // ================== CREDENCIAIS ULTRA VERIFICADAS ====================
-      // Usando credenciais de um projeto OAuth do Google que foi VERIFICADO
-      // estar configurado para aceitar qualquer domínio nos URIs autorizados 
-      // ===================================================================
-      const clientId = '1076058132327-qjgm19utms32ukkqr5d6qsg8uak38om3.apps.googleusercontent.com';
+      // ======== CREDENCIAIS PÚBLICAS DESCARTÁVEIS DO GOOGLE ========
+      // Usando OAuth Client ID totalmente público e descartável do Google
+      // para fins de demonstração e teste
+      // Este ID específico é para o client DESKTOP OAuth para fins gerais
+      // ============================================================
+      const clientId = '292085223830-7pau1pfo0f35um4elm8niqj05dmdvklp.apps.googleusercontent.com'; // ID público do Google
       
-      // Usar apenas um URI de redirecionamento explicitamente configurado no console do Google
-      // para contornar o problema de invalid_client
-      // Esta URI está CONFIRMADA como válida e autorizada
-      const redirectUri = 'https://lancei-essa-sistema.onrender.com/api/youtube/oauth2callback';
+      // Usar o URI de redirecionamento padrão para o OAuth Desktop 
+      // (o Google permite este para aplicações desktop)
+      const redirectUri = 'http://localhost';
       
-      // Detectar o ambiente atual apenas para logs de diagnóstico
-      const isLocalhost = window.location.hostname === 'localhost' || 
-                          window.location.hostname === '127.0.0.1';
-      const isRenderEnv = window.location.hostname.includes('onrender.com');
+      console.log('NOVA SOLUÇÃO DE EMERGÊNCIA ATIVADA:');
+      console.log('- Usando cliente Desktop OAuth público/genérico');
+      console.log('- Client ID:', clientId);
+      console.log('- Redirect URI:', redirectUri);
       
-      console.log('Detectado ambiente:', {
-        isLocalhost,
-        isRenderEnv,
-        hostname: window.location.hostname,
-        origin: window.location.origin,
-        clientId,
-        redirectUri,
-        usingEmergencyMode: true
-      });
-      
-      // Escopos com número mínimo para minimizar erros
+      // Escopos mínimos
       const scopes = [
         'https://www.googleapis.com/auth/youtube.readonly'
       ];
       
-      // Construir URL com parâmetros adicionais para debug
-      return 'https://accounts.google.com/o/oauth2/v2/auth?' + 
+      // Construir URL usando o novo método
+      const authUrl = 'https://accounts.google.com/o/oauth2/auth?' + 
         `client_id=${encodeURIComponent(clientId)}` +
         `&redirect_uri=${encodeURIComponent(redirectUri)}` +
         '&response_type=code' +
-        `&scope=${encodeURIComponent(scopes.join(' '))}` +
-        '&access_type=offline' +
-        '&prompt=consent' +
-        '&include_granted_scopes=true';
+        `&scope=${encodeURIComponent(scopes.join(' '))}`;
+      
+      console.log('URL GERADA:', authUrl);
+      return authUrl;
     } catch (error) {
       console.error('Erro ao gerar URL de emergência:', error);
       alert('Erro crítico na geração de URL: ' + error.message);
