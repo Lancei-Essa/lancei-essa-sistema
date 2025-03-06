@@ -19,19 +19,34 @@ export const checkYouTubeConnection = async () => {
  */
 export const getYouTubeAuthUrl = async () => {
   try {
-    console.log('Solicitando URL de autenticação do YouTube...');
+    console.log('[YouTube] Solicitando URL de autenticação...');
+    console.log('[YouTube] Endpoint:', api.defaults.baseURL + '/youtube/auth-url');
+    
     const response = await api.get('/youtube/auth-url');
-    console.log('Resposta recebida:', response.data);
+    console.log('[YouTube] Resposta recebida:', response.data);
     return response.data;
   } catch (error) {
-    console.error('Erro completo:', error);
-    console.error('Detalhes do erro:', {
+    console.error('[YouTube] Erro completo:', error);
+    console.error('[YouTube] URL que falhou:', api.defaults.baseURL + '/youtube/auth-url');
+    console.error('[YouTube] Detalhes do erro:', {
       message: error.message,
       status: error.response?.status,
       statusText: error.response?.statusText,
       data: error.response?.data
     });
-    throw error.response?.data || { success: false, message: 'Erro ao obter URL de autorização' };
+    
+    // Informação adicional para depuração
+    if (error.response) {
+      console.error('[YouTube] Resposta do servidor:', error.response);
+    } else if (error.request) {
+      console.error('[YouTube] Requisição sem resposta:', error.request);
+    }
+    
+    throw error.response?.data || { 
+      success: false, 
+      message: 'Erro ao obter URL de autorização',
+      originalError: error.message 
+    };
   }
 };
 

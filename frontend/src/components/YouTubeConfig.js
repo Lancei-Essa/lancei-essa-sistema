@@ -67,17 +67,35 @@ const YouTubeConfig = () => {
     try {
       setLoading(true);
       setError('');
-      // Usar o serviço para obter a URL de autenticação
-      const { success, authUrl } = await getYouTubeAuthUrl();
+      console.log('YouTubeConfig: Iniciando conexão com YouTube...');
       
-      if (success && authUrl) {
-        window.location.href = authUrl;
+      // Usar o serviço para obter a URL de autenticação
+      const response = await getYouTubeAuthUrl();
+      console.log('YouTubeConfig: Resposta completa:', response);
+      
+      if (response && response.success && response.authUrl) {
+        console.log('YouTubeConfig: Redirecionando para:', response.authUrl);
+        window.location.href = response.authUrl;
       } else {
-        setError('Erro ao gerar URL de autenticação');
+        console.error('YouTubeConfig: Resposta não contém URL válida:', response);
+        setError('Erro ao gerar URL de autenticação: resposta inválida do servidor');
       }
     } catch (err) {
-      console.error('Erro ao iniciar conexão com YouTube:', err);
-      setError(`Erro ao iniciar conexão com YouTube: ${err.message || 'Erro desconhecido'}`);
+      console.error('YouTubeConfig: Erro ao iniciar conexão com YouTube:', err);
+      
+      // Extrair mensagem de erro mais informativa
+      let errorMessage = 'Erro desconhecido';
+      
+      if (err.message) {
+        errorMessage = err.message;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      } else if (err.originalError) {
+        errorMessage = err.originalError;
+      }
+      
+      console.error('YouTubeConfig: Mensagem de erro extraída:', errorMessage);
+      setError(`Erro ao iniciar conexão com YouTube: ${errorMessage}`);
     } finally {
       setLoading(false);
     }

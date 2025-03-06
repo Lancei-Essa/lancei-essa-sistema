@@ -5,11 +5,18 @@ const readFileAsync = promisify(fs.readFile);
 
 // Verificar se as variáveis de ambiente estão configuradas
 const checkEnvVariables = () => {
+  console.log('[YouTube Service] Verificando variáveis de ambiente:');
+  console.log('[YouTube Service] YOUTUBE_CLIENT_ID:', process.env.YOUTUBE_CLIENT_ID ? 'Configurado' : 'Não configurado');
+  console.log('[YouTube Service] YOUTUBE_CLIENT_SECRET:', process.env.YOUTUBE_CLIENT_SECRET ? 'Configurado' : 'Não configurado');
+  console.log('[YouTube Service] YOUTUBE_REDIRECT_URI:', process.env.YOUTUBE_REDIRECT_URI);
+  console.log('[YouTube Service] API_BASE_URL:', process.env.API_BASE_URL);
+  
   if (!process.env.YOUTUBE_CLIENT_ID || !process.env.YOUTUBE_CLIENT_SECRET || !process.env.YOUTUBE_REDIRECT_URI) {
-    console.error('Aviso: Variáveis de ambiente globais do YouTube não configuradas.');
-    console.error('Será necessário usar credenciais específicas da empresa.');
+    console.error('[YouTube Service] ERRO: Variáveis de ambiente globais do YouTube não configuradas.');
+    console.error('[YouTube Service] Será necessário usar credenciais específicas da empresa.');
     return false;
   }
+  console.log('[YouTube Service] Todas as variáveis de ambiente estão configuradas corretamente.');
   return true;
 };
 
@@ -22,19 +29,55 @@ const createOAuth2Client = (credentials = null) => {
   const clientSecret = credentials?.client_secret || process.env.YOUTUBE_CLIENT_SECRET;
   const redirectUri = credentials?.redirect_uri || process.env.YOUTUBE_REDIRECT_URI;
   
+  console.log('[YouTube Service] Criando cliente OAuth2:');
+  console.log('[YouTube Service] - Client ID: ', clientId ? '[Configurado]' : '[Não configurado]');
+  console.log('[YouTube Service] - Client Secret: ', clientSecret ? '[Configurado]' : '[Não configurado]');
+  console.log('[YouTube Service] - Redirect URI: ', redirectUri);
+  
   if (!clientId || !clientSecret || !redirectUri) {
-    throw new Error('Credenciais do YouTube não disponíveis. Configure-as no arquivo .env ou forneça credenciais específicas.');
+    const missingFields = [];
+    if (!clientId) missingFields.push('Client ID');
+    if (!clientSecret) missingFields.push('Client Secret');
+    if (!redirectUri) missingFields.push('Redirect URI');
+    
+    const errorMsg = `Credenciais do YouTube não disponíveis: ${missingFields.join(', ')} não configurado(s). Configure-os no arquivo .env ou forneça credenciais específicas.`;
+    console.error('[YouTube Service] ' + errorMsg);
+    throw new Error(errorMsg);
   }
   
-  return new google.auth.OAuth2(
-    clientId,
-    clientSecret,
-    redirectUri
-  );
+  console.log('[YouTube Service] Todas as credenciais estão disponíveis, criando cliente OAuth2');
+  
+  try {
+    const client = new google.auth.OAuth2(
+      clientId,
+      clientSecret,
+      redirectUri
+    );
+    console.log('[YouTube Service] Cliente OAuth2 criado com sucesso');
+    return client;
+  } catch (error) {
+    console.error('[YouTube Service] Erro ao criar cliente OAuth2:', error);
+    throw new Error(`Falha ao criar cliente OAuth2: ${error.message}`);
+  }
 };
 
 // Cliente OAuth padrão (usando variáveis de ambiente)
-const oauth2Client = createOAuth2Client();
+let oauth2Client;
+try {
+  console.log('[YouTube Service] Tentando criar cliente OAuth2 padrão...');
+  oauth2Client = createOAuth2Client();
+  console.log('[YouTube Service] Cliente OAuth2 padrão criado com sucesso');
+} catch (error) {
+  console.error('[YouTube Service] ERRO ao criar cliente OAuth2 padrão:', error);
+  console.error('[YouTube Service] Operações que requerem autenticação falharão até que as credenciais sejam fornecidas');
+  
+  // Criar um cliente dummy para evitar erros de null pointer
+  oauth2Client = {
+    generateAuthUrl: () => { throw new Error('Cliente OAuth2 não inicializado devido a credenciais inválidas'); },
+    getToken: () => { throw new Error('Cliente OAuth2 não inicializado devido a credenciais inválidas'); },
+    setCredentials: () => { console.error('Tentativa de definir credenciais em cliente OAuth2 não inicializado'); }
+  };
+}
 
 // YouTube API client
 const youtube = google.youtube({
@@ -44,9 +87,26 @@ const youtube = google.youtube({
 
 // Gerar URL de autorização
 const getAuthUrl = (credentials = null) => {
+  console.log('[YouTube Service] Iniciando geração de URL de autenticação');
+  console.log('[YouTube Service] Credenciais fornecidas:', credentials ? 'Sim' : 'Não');
+  
   try {
     // Criar cliente OAuth específico se credenciais forem fornecidas
-    const client = credentials ? createOAuth2Client(credentials) : oauth2Client;
+    let client;
+    
+    if (credentials) {
+      console.log('[YouTube Service] Usando credenciais específicas fornecidas');
+      client = createOAuth2Client(credentials);
+    } else {
+      console.log('[YouTube Service] Usando credenciais globais do ambiente');
+      
+      // Se não temos as variáveis de ambiente configuradas e não foram fornecidas credenciais específicas
+      if (!envVariablesConfigured && !credentials) {
+        throw new Error('Credenciais do YouTube não configuradas. Configure as variáveis de ambiente ou forneça credenciais específicas.');
+      }
+      
+      client = oauth2Client;
+    }
     
     const scopes = [
       'https://www.googleapis.com/auth/youtube.upload',
@@ -54,13 +114,22 @@ const getAuthUrl = (credentials = null) => {
       'https://www.googleapis.com/auth/youtube.readonly'
     ];
 
-    return client.generateAuthUrl({
+    console.log('[YouTube Service] Gerando URL com escopos:', scopes);
+    
+    const authUrl = client.generateAuthUrl({
       access_type: 'offline',
       scope: scopes,
       include_granted_scopes: true
     });
+    
+    console.log('[YouTube Service] URL de autenticação gerada com sucesso:', authUrl);
+    return authUrl;
   } catch (error) {
-    console.error('Erro ao gerar URL de autenticação:', error);
+    console.error('[YouTube Service] ERRO ao gerar URL de autenticação:', error);
+    console.error('[YouTube Service] Detalhes do erro:', {
+      message: error.message,
+      stack: error.stack
+    });
     throw new Error(`Erro ao gerar URL de autenticação: ${error.message}`);
   }
 };

@@ -199,17 +199,28 @@ const Settings = () => {
       // Obter URL de autenticação específica para a plataforma
       if (platform === 'youtube') {
         try {
+          console.log('Settings: Obtendo URL de autenticação do YouTube...');
           const response = await getYouTubeAuthUrl();
-          console.log('Resposta do YouTube:', response);
+          console.log('Settings: Resposta do YouTube:', response);
           
           if (response && response.success && response.authUrl) {
+            console.log('Settings: URL de autenticação válida:', response.authUrl);
             authUrl = response.authUrl;
           } else {
+            console.error('Settings: Resposta inválida:', response);
             throw new Error(`URL de autenticação inválida: ${JSON.stringify(response)}`);
           }
         } catch (error) {
-          console.error('Erro ao obter URL de autenticação do YouTube:', error);
-          throw error;
+          console.error('Settings: Erro ao obter URL de autenticação do YouTube:', error);
+          
+          // Extrair detalhes mais úteis para o erro
+          const errorDetails = error.response?.data?.message || 
+                               error.originalError || 
+                               error.message || 
+                               'Erro desconhecido';
+          console.error('Settings: Detalhes do erro:', errorDetails);
+          
+          throw new Error(`Falha ao obter URL de autenticação: ${errorDetails}`);
         }
       } else if (platform === 'instagram') {
         try {

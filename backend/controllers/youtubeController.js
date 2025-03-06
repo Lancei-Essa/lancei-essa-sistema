@@ -12,65 +12,147 @@ exports.getAuthUrl = async (req, res) => {
     // Obter informações do usuário
     const userId = req.user ? req.user._id : null;
     if (!userId) {
+      console.error('Usuário não autenticado ao tentar obter URL de autenticação YouTube');
       return res.status(401).json({
         success: false,
         message: 'Usuário não autenticado'
       });
     }
     
-    console.log(`Gerando URL de autenticação para usuário: ${userId}`);
+    console.log(`[YouTube Controller] Gerando URL de autenticação para usuário: ${userId}`);
     
-    // Buscar usuário e empresa associada
-    const User = require('../models/User');
-    const Company = require('../models/Company');
-    
-    const user = await User.findById(userId).populate('company');
-    
-    let companyCredentials = null;
-    
-    // Verificar se o usuário pertence a uma empresa com credenciais configuradas
-    if (user.company) {
-      console.log(`Usuário pertence à empresa: ${user.company.name}`);
+    try {
+      // Buscar usuário e empresa associada
+      const User = require('../models/User');
+      const Company = require('../models/Company');
       
-      // Buscar empresa com credenciais
-      const company = await Company.findById(user.company._id)
-        .select('+oauthCredentials.youtube.client_id +oauthCredentials.youtube.client_secret');
+      const user = await User.findById(userId).populate('company');
+      console.log(`[YouTube Controller] Usuário encontrado:`, user ? 'Sim' : 'Não');
       
-      if (company && 
-          company.oauthCredentials && 
-          company.oauthCredentials.youtube && 
-          company.oauthCredentials.youtube.enabled) {
+      let companyCredentials = null;
+      
+      // Verificar se o usuário pertence a uma empresa com credenciais configuradas
+      if (user && user.company) {
+        console.log(`[YouTube Controller] Usuário pertence à empresa: ${user.company.name}`);
         
-        // Obter credenciais descriptografadas
-        companyCredentials = company.getPlatformCredentials('youtube');
-        console.log('Usando credenciais específicas da empresa');
+        try {
+          // Buscar empresa com credenciais
+          const company = await Company.findById(user.company._id)
+            .select('+oauthCredentials.youtube.client_id +oauthCredentials.youtube.client_secret');
+          
+          if (company && 
+              company.oauthCredentials && 
+              company.oauthCredentials.youtube && 
+              company.oauthCredentials.youtube.enabled) {
+            
+            // Obter credenciais descriptografadas
+            companyCredentials = company.getPlatformCredentials('youtube');
+            console.log('[YouTube Controller] Usando credenciais específicas da empresa');
+          } else {
+            console.log('[YouTube Controller] Empresa não tem credenciais específicas para YouTube ou não estão habilitadas');
+          }
+        } catch (companyError) {
+          console.error('[YouTube Controller] Erro ao obter credenciais da empresa:', companyError);
+          // Continuar usando credenciais do ambiente
+        }
+      } else {
+        console.log('[YouTube Controller] Usuário não está associado a nenhuma empresa ou não foi encontrado');
       }
+      
+      // Gerar URL de autenticação usando credenciais específicas ou padrão
+      console.log('[YouTube Controller] Chamando youtubeService.getAuthUrl()...');
+      const authUrl = youtubeService.getAuthUrl(companyCredentials);
+      
+      console.log(`[YouTube Controller] URL de autenticação gerada com sucesso: ${authUrl}`);
+      
+      // Retornar a URL gerada
+      return res.json({ 
+        success: true, 
+        authUrl 
+      });
+    } catch (lookupError) {
+      console.error('[YouTube Controller] Erro ao procurar usuário/empresa:', lookupError);
+      
+      // Tentar gerar URL mesmo sem informações da empresa
+      console.log('[YouTube Controller] Tentando gerar URL com configurações do ambiente...');
+      const authUrl = youtubeService.getAuthUrl(null);
+      
+      console.log(`[YouTube Controller] URL de backup gerada: ${authUrl}`);
+      
+      return res.json({ 
+        success: true, 
+        authUrl,
+        note: 'Usando configuração global do ambiente'
+      });
     }
-    
-    // Gerar URL de autenticação usando credenciais específicas ou padrão
-    const authUrl = youtubeService.getAuthUrl(companyCredentials);
-    
-    console.log(`URL de autenticação gerada: ${authUrl}`);
-    
-    // Retornar a URL gerada
-    res.json({ 
-      success: true, 
-      authUrl 
-    });
   } catch (error) {
-    console.error('Erro ao gerar URL de autenticação:', error);
-    res.status(500).json({ 
+    console.error('[YouTube Controller] ERRO CRÍTICO ao gerar URL de autenticação:', error);
+    console.error('[YouTube Controller] Stack trace:', error.stack);
+    
+    return res.status(500).json({ 
       success: false, 
       message: 'Erro ao gerar URL de autenticação', 
-      error: error.message 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
 
 // Redirecionar para autorização do Google
 exports.authorize = (req, res) => {
-  const authUrl = youtubeService.getAuthUrl();
-  res.redirect(authUrl);
+  try {
+    console.log('[YouTube Controller] Iniciando authorize (redirecionamento direto)');
+    
+    // Obter informações do usuário
+    const userId = req.user ? req.user._id : null;
+    if (!userId) {
+      console.error('[YouTube Controller] authorize: Usuário não autenticado');
+      return res.status(401).json({
+        success: false,
+        message: 'Usuário não autenticado'
+      });
+    }
+    
+    console.log(`[YouTube Controller] authorize: Gerando URL para usuário: ${userId}`);
+    
+    // Enviamos o ID do usuário como state para poder identificá-lo no callback
+    const authUrl = youtubeService.getAuthUrl(null);
+    console.log(`[YouTube Controller] authorize: Redirecionando para ${authUrl}`);
+    
+    return res.redirect(authUrl);
+  } catch (error) {
+    console.error('[YouTube Controller] ERRO em authorize:', error);
+    
+    // Ao invés de dar um erro 500, renderizamos uma página de erro
+    const errorHtml = `
+      <html>
+        <head>
+          <title>Erro na Autorização</title>
+          <style>
+            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+            .error { color: red; font-size: 18px; }
+            .details { margin: 20px; padding: 10px; background: #f8f8f8; text-align: left; border-radius: 5px; }
+            button { padding: 10px 15px; margin-top: 20px; cursor: pointer; }
+          </style>
+        </head>
+        <body>
+          <h1>Erro na Autorização</h1>
+          <p class="error">${error.message}</p>
+          
+          <div class="details">
+            <p><strong>Detalhes técnicos:</strong></p>
+            <pre>${error.stack || 'Sem stack trace disponível'}</pre>
+          </div>
+          
+          <p>Ocorreu um erro ao iniciar o processo de autorização. Por favor, tente novamente ou contate o suporte.</p>
+          <button onclick="window.close()">Fechar</button>
+          <button onclick="window.location.href='/settings'">Voltar às Configurações</button>
+        </body>
+      </html>
+    `;
+    
+    return res.status(500).send(errorHtml);
+  }
 };
 
 // Callback de autorização
