@@ -21,38 +21,17 @@ const tokenRefresher = require('./utils/tokenManager/tokenRefresher');
 dotenv.config();
 const app = express();
 
-// Definir API_BASE_URL padrão se não estiver configurada
-if (!process.env.API_BASE_URL) {
-  const port = process.env.PORT || 5002;
-  process.env.API_BASE_URL = `http://localhost:${port}`;
-  console.log(`⚠️ API_BASE_URL não configurada, usando valor padrão: ${process.env.API_BASE_URL}`);
-} else {
-  console.log(`✅ API_BASE_URL configurada: ${process.env.API_BASE_URL}`);
+// Carregar o script de configuração de ambiente
+require('./setup-env');
+
+// Log de informação do servidor para debug
+console.log('📊 Informações do servidor:');
+console.log(`- NODE_ENV: ${process.env.NODE_ENV}`);
+console.log(`- PORT: ${process.env.PORT || 5002}`);
+console.log(`- API_BASE_URL: ${process.env.API_BASE_URL}`);
+if (process.env.RENDER_EXTERNAL_URL) {
+  console.log(`- RENDER_EXTERNAL_URL: ${process.env.RENDER_EXTERNAL_URL}`);
 }
-
-// Garantir consistência nas URLs de redirecionamento
-console.log('🔍 Verificando consistência nas URLs de redirecionamento OAuth...');
-
-// Verificar e corrigir YOUTUBE_REDIRECT_URI
-if (!process.env.YOUTUBE_REDIRECT_URI || !process.env.YOUTUBE_REDIRECT_URI.includes(process.env.API_BASE_URL)) {
-  const oldValue = process.env.YOUTUBE_REDIRECT_URI;
-  process.env.YOUTUBE_REDIRECT_URI = `${process.env.API_BASE_URL}/api/youtube/oauth2callback`;
-  console.log(`⚠️ YOUTUBE_REDIRECT_URI inconsistente com API_BASE_URL. Corrigido:`);
-  console.log(`   - Valor anterior: ${oldValue || 'não definido'}`);
-  console.log(`   - Novo valor: ${process.env.YOUTUBE_REDIRECT_URI}`);
-} else {
-  console.log(`✅ YOUTUBE_REDIRECT_URI consistente: ${process.env.YOUTUBE_REDIRECT_URI}`);
-}
-
-// Log de todas as URLs de redirecionamento para depuração
-console.log('\n🔐 URLs de redirecionamento OAuth configuradas:');
-console.log(`🎬 YouTube: ${process.env.YOUTUBE_REDIRECT_URI}`);
-console.log(`📱 Instagram: ${process.env.INSTAGRAM_REDIRECT_URI || 'não configurado'}`);
-console.log(`🐦 Twitter: ${process.env.TWITTER_REDIRECT_URI || 'não configurado'}`);
-console.log(`👔 LinkedIn: ${process.env.LINKEDIN_REDIRECT_URI || 'não configurado'}`);
-console.log(`🎵 TikTok: ${process.env.TIKTOK_REDIRECT_URI || 'não configurado'}`);
-console.log(`🎵 Spotify: ${process.env.SPOTIFY_REDIRECT_URI || 'não configurado'}`);
-console.log(`📊 URL base para callbacks OAuth: ${process.env.API_BASE_URL}`);
 console.log('');
 app.use(cors());
 app.use(express.json());

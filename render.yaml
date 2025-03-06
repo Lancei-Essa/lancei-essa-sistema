@@ -18,10 +18,12 @@ services:
       - key: JWT_SECRET
         sync: false
       - key: YOUTUBE_CLIENT_ID
-        sync: false
+        value: 1035705950747-7ufvkq0siigic18aucg1ragkgjgbeel.apps.googleusercontent.com
       - key: YOUTUBE_CLIENT_SECRET
-        sync: false
-      # As URIs de redirecionamento agora usam API_BASE_URL
+        value: GOCSPX-a7cwDja5el0_NQM37Vws9-I-57P
+      # URL completa para evitar problemas com interpolação de variáveis
+      - key: YOUTUBE_REDIRECT_URI
+        value: https://lancei-essa-api.onrender.com/api/youtube/oauth2callback
       - key: TWITTER_API_KEY
         sync: false
       - key: TWITTER_API_SECRET
@@ -51,7 +53,7 @@ services:
     env: node
     rootDir: frontend
     buildCommand: npm install && npm run build
-    startCommand: npm run start
+    startCommand: npm run start-prod
     envVars:
       - key: NODE_ENV
         value: production
