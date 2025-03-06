@@ -17,11 +17,9 @@ import Profile from './pages/Profile';
 import NewsletterGenerator from './pages/NewsletterGenerator';
 import NewsletterHistory from './pages/NewsletterHistory';
 import Documentation from './pages/Documentation';
-import SocialMedia from './pages/SocialMedia';
 
-// Novos componentes para melhorar a UX
+// Componente de assistente de conexão
 import ConnectionWizard from './components/ConnectionWizard/ConnectionWizard';
-import ConnectionStatusDashboard from './components/StatusDashboard/ConnectionStatusDashboard';
 
 // Tema personalizado
 const theme = createTheme({
@@ -70,14 +68,16 @@ function App() {
                 <Route path="/episodes/:id" element={<EpisodeDetails />} />
                 <Route path="/episodes/:id/edit" element={<EpisodeForm />} />
                 <Route path="/publications" element={<Publications />} />
-                <Route path="/social-media" element={<SocialMedia />} />
                 <Route path="/metrics" element={<Metrics />} />
                 <Route path="/newsletters/generator" element={<NewsletterGenerator />} />
                 <Route path="/newsletters/history" element={<NewsletterHistory />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/documentation" element={<Documentation />} />
-                <Route path="/connection-status" element={<ConnectionStatusDashboard />} />
+                
+                {/* Redirecionamento para páginas consolidadas na área de configurações */}
+                <Route path="/social-media" element={<Navigate to="/settings" />} />
+                <Route path="/connection-status" element={<Navigate to="/settings" />} />
               </Route>
             </Route>
             

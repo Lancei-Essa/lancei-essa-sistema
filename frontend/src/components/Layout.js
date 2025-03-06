@@ -8,8 +8,7 @@ import {
 import { 
   Menu as MenuIcon, ChevronLeft, ChevronRight, Dashboard, 
   Mic, Schedule, BarChart, Settings, Person, Logout,
-  Email, ExpandLess, ExpandMore, Help, Share, 
-  ConnectWithoutContact
+  Email, ExpandLess, ExpandMore, Help
 } from '@mui/icons-material';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -100,8 +99,6 @@ const Layout = () => {
     { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
     { text: 'Episódios', icon: <Mic />, path: '/episodes' },
     { text: 'Publicações', icon: <Schedule />, path: '/publications' },
-    { text: 'Redes Sociais', icon: <Share />, path: '/social-media' },
-    { text: 'Status de Conexões', icon: <ConnectWithoutContact />, path: '/connection-status' },
     { 
       text: 'Newsletter', 
       icon: <Email />, 
