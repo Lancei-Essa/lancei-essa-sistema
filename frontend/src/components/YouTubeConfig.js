@@ -19,6 +19,7 @@ const YouTubeConfig = () => {
   const [channelStats, setChannelStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const [tokenExpired, setTokenExpired] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
   
   useEffect(() => {
     checkConnection();
@@ -106,14 +107,17 @@ const YouTubeConfig = () => {
         'https://www.googleapis.com/auth/youtube.readonly'
       ];
       
-      // SOLUÇÃO SIMPLIFICADA - LINK DIRETO
-      // Em vez de tentar OAuth complexo, vamos apenas abrir a página de login do YouTube
-      // para que o usuário possa fazer login/já esteja logado
-      const directUrl = 'https://www.youtube.com/signin';
+      // Construir a URL de autorização manualmente com o client_id
+      const authUrl = 'https://accounts.google.com/o/oauth2/auth?' + 
+        `client_id=${encodeURIComponent(clientId)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        '&response_type=code' +
+        `&scope=${encodeURIComponent(scopes.join(' '))}` +
+        '&access_type=offline' +
+        '&include_granted_scopes=true';
       
-      console.log('USANDO ABORDAGEM SIMPLIFICADA - LINK DIRETO PARA YOUTUBE:');
-      console.log('URL: ' + directUrl);
-      return directUrl;
+      console.log('URL de autorização de emergência gerada:', authUrl);
+      return authUrl;
     } catch (error) {
       console.error('Erro ao gerar URL de emergência:', error);
       alert('Erro crítico na geração de URL: ' + error.message);
@@ -408,6 +412,42 @@ Redirect URI: ${emergencyUrl.match(/redirect_uri=([^&]*)/)[1]}
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
+          <Button 
+            size="small" 
+            variant="outlined" 
+            color="error" 
+            sx={{ mt: 1, ml: 2 }}
+            onClick={() => setDebugMode(!debugMode)}
+          >
+            {debugMode ? "Ocultar Diagnóstico" : "Mostrar Diagnóstico"}
+          </Button>
+          
+          {debugMode && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(0,0,0,0.05)', borderRadius: 1 }}>
+              <Typography variant="subtitle2" gutterBottom>Diagnóstico YouTube OAuth:</Typography>
+              <Button 
+                variant="contained" 
+                size="small" 
+                color="primary" 
+                sx={{ mt: 1, mr: 1 }}
+                onClick={showUrlForDebugging}
+              >
+                Gerar URL de Emergência
+              </Button>
+              <Button 
+                variant="contained" 
+                size="small" 
+                color="secondary" 
+                sx={{ mt: 1, mr: 1 }}
+                onClick={() => {
+                  const url = generateEmergencyAuthUrl();
+                  window.open(url, "_blank");
+                }}
+              >
+                Abrir URL de Emergência
+              </Button>
+            </Box>
+          )}
         </Alert>
       )}
       
