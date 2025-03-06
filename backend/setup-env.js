@@ -1,4 +1,6 @@
 // Este script garante que as variáveis de ambiente estejam configuradas corretamente
+const dotenv = require('dotenv');
+dotenv.config();
 console.log('Configurando variáveis de ambiente para o YouTube...');
 
 // Definir API_BASE_URL caso não esteja configurada
