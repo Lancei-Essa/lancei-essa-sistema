@@ -17,13 +17,16 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
+      # Não precisamos mais definir esses valores pois usamos método desktop para autenticação
+      - key: YOUTUBE_EMERGENCY_MODE
+        value: "true"
+      # Mantendo esses valores como valores vazios para compatibilidade, mas não são usados
       - key: YOUTUBE_CLIENT_ID
-        value: 1035705950747-7ufvkq0siigic18aucg1ragkgjgbeel.apps.googleusercontent.com
+        value: ""
       - key: YOUTUBE_CLIENT_SECRET
-        value: GOCSPX-a7cwDja5el0_NQM37Vws9-I-57P
-      # URL completa para evitar problemas com interpolação de variáveis
+        value: ""
       - key: YOUTUBE_REDIRECT_URI
-        value: https://lancei-essa-api.onrender.com/api/youtube/oauth2callback
+        value: ""
       - key: TWITTER_API_KEY
         sync: false
       - key: TWITTER_API_SECRET
