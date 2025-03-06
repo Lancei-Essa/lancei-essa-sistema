@@ -65,8 +65,8 @@ const YouTubeConfig = () => {
   
   // Para o modo de emergência (quando o backend está tendo problemas)
   const generateEmergencyAuthUrl = () => {
-    // Use as credenciais do Google para o projeto Lancei Essa
-    const clientId = '1035705950747-7ufvkq0siigic18aucg1ragkgjgbeel.apps.googleusercontent.com';
+    // Use as credenciais do Google para o projeto Lancei Essa (ID correto)
+    const clientId = '1035705950747-4rchkg4kp9fs9vku48c6vk1i04udl7a8.apps.googleusercontent.com';
     
     // Detectar o ambiente atual (local, render, etc.)
     const isLocalhost = window.location.hostname === 'localhost' || 
