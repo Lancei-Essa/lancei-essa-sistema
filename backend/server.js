@@ -557,16 +557,44 @@ const startServer = async () => {
       });
     } catch (error) {
       console.error('Erro ao gerar URL simplificada:', error);
+      console.error('Stack trace completo:', error.stack);
+      
+      // Tentar obter todas as variáveis de ambiente possíveis para diagnóstico
+      const envVars = {};
+      [
+        'YOUTUBE_CLIENT_ID', 'YOUTUBE_CLIENT_SECRET', 'YOUTUBE_REDIRECT_URI', 
+        'API_BASE_URL', 'NODE_ENV', 'PORT', 'RENDER_EXTERNAL_URL', 
+        'RENDER_INTERNAL_URL', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET',
+        'GOOGLE_REDIRECT_URI'
+      ].forEach(key => {
+        envVars[key] = process.env[key] ? 
+          (key.includes('SECRET') ? '[REDACTED]' : process.env[key]) 
+          : undefined;
+      });
+      
+      console.error('Variáveis de ambiente no momento do erro:', envVars);
+      
+      // Tentar obter mais informações sobre variáveis críticas
+      const clientIdInfo = process.env.YOUTUBE_CLIENT_ID ? {
+        length: process.env.YOUTUBE_CLIENT_ID.length,
+        firstChars: process.env.YOUTUBE_CLIENT_ID.substring(0, 5) + '...',
+        lastChars: '...' + process.env.YOUTUBE_CLIENT_ID.substring(process.env.YOUTUBE_CLIENT_ID.length - 5)
+      } : 'Não definido';
+      
+      console.error('Informações detalhadas do CLIENT_ID:', clientIdInfo);
+      
       res.status(500).json({
         success: false,
         message: 'Erro ao gerar URL simplificada',
-        error: error.message,
+        errorDetail: `ERRO DETALHADO PARA DIAGNÓSTICO: ${error.name}: ${error.message}`,
+        errorStack: error.stack ? error.stack.split('\n')[0] : 'Stack não disponível',
         debug: {
           client_id_exists: Boolean(process.env.YOUTUBE_CLIENT_ID),
           client_id_length: process.env.YOUTUBE_CLIENT_ID ? process.env.YOUTUBE_CLIENT_ID.length : 0,
           redirect_uri: process.env.YOUTUBE_REDIRECT_URI,
           api_base_url: process.env.API_BASE_URL,
-          node_env: process.env.NODE_ENV
+          node_env: process.env.NODE_ENV,
+          environment_vars: envVars
         }
       });
     }
