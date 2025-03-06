@@ -2,15 +2,16 @@ import React, { useState, useEffect } from 'react';
 import {
   Container, Typography, Box, Grid, TextField, Button,
   Switch, FormControlLabel, Divider, Accordion, AccordionSummary, 
-  AccordionDetails, Alert, Tabs, Tab, Card, CardContent, Chip,
-  CircularProgress, FormControl, InputLabel, Select, MenuItem
+  AccordionDetails, Alert, Card, CardContent, Chip, Paper,
+  CircularProgress, FormControl, InputLabel, Select, MenuItem,
+  Collapse, IconButton
 } from '@mui/material';
 import { 
   Save, ExpandMore, TokenOutlined, Refresh, Add, Check,
-  YouTube, Instagram, LinkedIn, Twitter, Facebook, AdminPanelSettings
+  YouTube, Instagram, LinkedIn, Twitter, Facebook, AdminPanelSettings,
+  ExpandLess, KeyboardArrowRight, Settings as SettingsIcon
 } from '@mui/icons-material';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
-import SocialMediaHub from '../components/SocialMediaHub';
 import connectionMonitor from '../services/monitoring/connectionMonitor';
 import CompanyManager from '../components/AdminPanel/CompanyManager';
 
@@ -94,9 +95,9 @@ const Settings = () => {
   const [lastRefresh, setLastRefresh] = useState(null);
   const [loadingConnections, setLoadingConnections] = useState(false);
 
-  // Estado da guia ativa na seção de redes sociais
-  const [socialMediaTab, setSocialMediaTab] = useState(0);
-
+  // Estado das plataformas expandidas
+  const [expandedPlatforms, setExpandedPlatforms] = useState({});
+  
   // Estados de controle geral
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -150,14 +151,23 @@ const Settings = () => {
     });
   };
 
-  const handleSocialMediaTabChange = (event, newValue) => {
-    setSocialMediaTab(newValue);
+  const handlePlatformToggle = (platformId) => {
+    setExpandedPlatforms(prev => ({
+      ...prev,
+      [platformId]: !prev[platformId]
+    }));
   };
 
   const handleConnect = async (platform) => {
     // Lógica para iniciar conexão com a plataforma
     console.log(`Conectando com ${platform}...`);
     // Em uma implementação real, aqui abriríamos o fluxo OAuth
+    
+    // Expandir automaticamente a plataforma após iniciar conexão
+    setExpandedPlatforms(prev => ({
+      ...prev,
+      [platform]: true
+    }));
   };
 
   const handleSaveSettings = () => {
@@ -172,14 +182,33 @@ const Settings = () => {
     }, 1000);
   };
 
-  // Componentes para as diferentes guias de redes sociais
-  const renderConnectionStatus = () => (
+  // Renderizar o conteúdo unificado de gerenciamento de redes sociais
+  const renderSocialMediaManagement = () => (
     <Box sx={{ mt: 2 }}>
-      {lastRefresh && (
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="caption">
-            Última verificação: {lastRefresh.toLocaleTimeString()}
-          </Typography>
+      {/* Seletor de empresa e informações gerais */}
+      <Box sx={{ mb: 3 }}>
+        <FormControl variant="outlined" sx={{ minWidth: 200 }}>
+          <InputLabel>Empresa</InputLabel>
+          <Select
+            value={selectedCompany}
+            onChange={handleCompanyChange}
+            label="Empresa"
+            size="small"
+          >
+            {companies.map(company => (
+              <MenuItem key={company.id} value={company.id}>
+                {company.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
+          {lastRefresh && (
+            <Typography variant="caption">
+              Última verificação: {lastRefresh.toLocaleTimeString()}
+            </Typography>
+          )}
           <Button 
             startIcon={<Refresh />}
             size="small"
@@ -190,227 +219,309 @@ const Settings = () => {
             Atualizar Status
           </Button>
         </Box>
-      )}
-
-      {loadingConnections ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <Grid container spacing={2}>
-          {PLATFORMS.map((platform) => {
-            const status = connectionStatus[platform.id];
-            
-            return (
-              <Grid item xs={12} sm={6} md={4} key={platform.id}>
-                <Card variant="outlined">
-                  <CardContent>
-                    <Box sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'space-between', 
-                      mb: 2 
-                    }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        {platform.icon}
-                        <Typography variant="subtitle1" sx={{ ml: 1 }}>
-                          {platform.name}
-                        </Typography>
-                      </Box>
-                      
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        {getStatusChip(status)}
-                      </Box>
-                    </Box>
-                    
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        {status?.connected ? 
-                          status.tokenExpiresIn ? `Token expira em ${status.tokenExpiresIn} dias` : 'Conectado' 
-                          : 'Não conectado'}
-                      </Typography>
-                      
-                      <Button 
-                        size="small" 
-                        color="primary" 
-                        onClick={() => handleConnect(platform.id)}
-                      >
-                        {(!status || !status.connected) ? "Conectar" : "Reconectar"}
-                      </Button>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            );
-          })}
-        </Grid>
-      )}
-    </Box>
-  );
-
-  const renderCompanyCredentials = () => (
-    <Box sx={{ mt: 2 }}>
-      <Box sx={{ mb: 3 }}>
-        <FormControl fullWidth variant="outlined">
-          <InputLabel>Empresa</InputLabel>
-          <Select
-            value={selectedCompany}
-            onChange={handleCompanyChange}
-            label="Empresa"
-          >
-            {companies.map(company => (
-              <MenuItem key={company.id} value={company.id}>
-                {company.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
       </Box>
 
+      {/* Visão geral dos status de conexão */}
+      <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+        <Typography variant="subtitle1" gutterBottom fontWeight="medium">
+          Visão Geral das Conexões
+        </Typography>
+        
+        {loadingConnections ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+            <CircularProgress size={30} />
+          </Box>
+        ) : (
+          <Grid container spacing={2}>
+            {PLATFORMS.map((platform) => {
+              const status = connectionStatus[platform.id];
+              
+              return (
+                <Grid item key={platform.id}>
+                  <Chip
+                    icon={platform.icon}
+                    label={platform.name}
+                    variant="outlined"
+                    color={status?.connected ? "success" : "default"}
+                    onClick={() => handlePlatformToggle(platform.id)}
+                    sx={{ px: 1 }}
+                  />
+                </Grid>
+              );
+            })}
+          </Grid>
+        )}
+      </Paper>
+
+      {/* Detalhes e configurações por plataforma */}
       <Alert severity="info" sx={{ mb: 3 }}>
-        Estas credenciais são usadas para autenticar o sistema com as APIs das plataformas.
+        Selecione uma plataforma abaixo para ver e gerenciar suas configurações.
         Cada empresa pode ter suas próprias credenciais para as diferentes redes sociais.
       </Alert>
 
-      <Grid container spacing={3}>
-        {PLATFORMS.map((platform) => (
-          <Grid item xs={12} key={platform.id}>
-            <Card variant="outlined">
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+      {PLATFORMS.map((platform) => {
+        const status = connectionStatus[platform.id];
+        const isExpanded = expandedPlatforms[platform.id] || false;
+        
+        return (
+          <Card 
+            variant="outlined" 
+            key={platform.id} 
+            sx={{ 
+              mb: 2,
+              borderColor: isExpanded ? 'primary.main' : 'inherit',
+              transition: 'all 0.2s'
+            }}
+          >
+            <CardContent 
+              sx={{ 
+                p: '12px !important', 
+                '&:last-child': { pb: '12px !important' } 
+              }}
+            >
+              {/* Cabeçalho da plataforma */}
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  justifyContent: 'space-between', 
+                  cursor: 'pointer',
+                  py: 1
+                }}
+                onClick={() => handlePlatformToggle(platform.id)}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   {platform.icon}
-                  <Typography variant="h6" sx={{ ml: 1 }}>
+                  <Typography variant="h6" sx={{ ml: 1, fontSize: '1.1rem' }}>
                     {platform.name}
                   </Typography>
+                  <Box sx={{ ml: 2 }}>
+                    {getStatusChip(status)}
+                  </Box>
                 </Box>
                 
-                <Grid container spacing={2}>
-                  {platform.id === 'youtube' && (
-                    <>
-                      <Grid item xs={12} md={4}>
-                        <TextField
-                          fullWidth
-                          label="Client ID"
-                          value={companyCredentials[selectedCompany]?.youtube?.clientId || ''}
-                          onChange={(e) => handleCredentialChange('youtube', 'clientId', e.target.value)}
-                          type="password"
-                        />
-                      </Grid>
-                      <Grid item xs={12} md={4}>
-                        <TextField
-                          fullWidth
-                          label="Client Secret"
-                          value={companyCredentials[selectedCompany]?.youtube?.clientSecret || ''}
-                          onChange={(e) => handleCredentialChange('youtube', 'clientSecret', e.target.value)}
-                          type="password"
-                        />
-                      </Grid>
-                      <Grid item xs={12} md={4}>
-                        <TextField
-                          fullWidth
-                          label="API Key"
-                          value={companyCredentials[selectedCompany]?.youtube?.apiKey || ''}
-                          onChange={(e) => handleCredentialChange('youtube', 'apiKey', e.target.value)}
-                          type="password"
-                        />
-                      </Grid>
-                    </>
-                  )}
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Button 
+                    size="small" 
+                    color="primary" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleConnect(platform.id);
+                    }}
+                    sx={{ mr: 2 }}
+                  >
+                    {(!status || !status.connected) ? "Conectar" : "Reconectar"}
+                  </Button>
+                  
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePlatformToggle(platform.id);
+                    }}
+                  >
+                    {isExpanded ? <ExpandLess /> : <ExpandMore />}
+                  </IconButton>
+                </Box>
+              </Box>
+              
+              {/* Conteúdo expandido da plataforma */}
+              <Collapse in={isExpanded}>
+                <Divider sx={{ my: 1.5 }} />
+                
+                <Grid container spacing={3}>
+                  {/* Coluna de status */}
+                  <Grid item xs={12} md={4}>
+                    <Typography variant="subtitle2" color="primary" gutterBottom>
+                      Status da Conexão
+                    </Typography>
+                    
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Status:
+                        </Typography>
+                        <Typography variant="body1">
+                          {status?.connected ? 'Conectado' : 'Não conectado'}
+                        </Typography>
+                      </Box>
+                      
+                      {status?.connected && (
+                        <>
+                          <Box>
+                            <Typography variant="body2" color="text.secondary">
+                              Expira em:
+                            </Typography>
+                            <Typography variant="body1">
+                              {status.tokenExpiresIn ? `${status.tokenExpiresIn} dias` : 'N/A'}
+                            </Typography>
+                          </Box>
+                          
+                          {status?.profile && (
+                            <Box>
+                              <Typography variant="body2" color="text.secondary">
+                                Conta conectada:
+                              </Typography>
+                              <Typography variant="body1">
+                                {status.profile.name || 'Não disponível'}
+                              </Typography>
+                            </Box>
+                          )}
+                        </>
+                      )}
+                      
+                      {status?.error && (
+                        <Alert severity="error" sx={{ mt: 1 }}>
+                          {status.error}
+                        </Alert>
+                      )}
+                    </Box>
+                  </Grid>
+                  
+                  {/* Coluna de credenciais */}
+                  <Grid item xs={12} md={8}>
+                    <Typography variant="subtitle2" color="primary" gutterBottom>
+                      Credenciais da API
+                    </Typography>
+                    
+                    <Grid container spacing={2}>
+                      {platform.id === 'youtube' && (
+                        <>
+                          <Grid item xs={12} md={4}>
+                            <TextField
+                              fullWidth
+                              label="Client ID"
+                              value={companyCredentials[selectedCompany]?.youtube?.clientId || ''}
+                              onChange={(e) => handleCredentialChange('youtube', 'clientId', e.target.value)}
+                              type="password"
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} md={4}>
+                            <TextField
+                              fullWidth
+                              label="Client Secret"
+                              value={companyCredentials[selectedCompany]?.youtube?.clientSecret || ''}
+                              onChange={(e) => handleCredentialChange('youtube', 'clientSecret', e.target.value)}
+                              type="password"
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} md={4}>
+                            <TextField
+                              fullWidth
+                              label="API Key"
+                              value={companyCredentials[selectedCompany]?.youtube?.apiKey || ''}
+                              onChange={(e) => handleCredentialChange('youtube', 'apiKey', e.target.value)}
+                              type="password"
+                              size="small"
+                            />
+                          </Grid>
+                        </>
+                      )}
 
-                  {platform.id === 'instagram' && (
-                    <>
-                      <Grid item xs={12} md={6}>
-                        <TextField
-                          fullWidth
-                          label="Client ID"
-                          value={companyCredentials[selectedCompany]?.instagram?.clientId || ''}
-                          onChange={(e) => handleCredentialChange('instagram', 'clientId', e.target.value)}
-                          type="password"
-                        />
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        <TextField
-                          fullWidth
-                          label="Client Secret"
-                          value={companyCredentials[selectedCompany]?.instagram?.clientSecret || ''}
-                          onChange={(e) => handleCredentialChange('instagram', 'clientSecret', e.target.value)}
-                          type="password"
-                        />
-                      </Grid>
-                    </>
-                  )}
+                      {platform.id === 'instagram' && (
+                        <>
+                          <Grid item xs={12} md={6}>
+                            <TextField
+                              fullWidth
+                              label="Client ID"
+                              value={companyCredentials[selectedCompany]?.instagram?.clientId || ''}
+                              onChange={(e) => handleCredentialChange('instagram', 'clientId', e.target.value)}
+                              type="password"
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} md={6}>
+                            <TextField
+                              fullWidth
+                              label="Client Secret"
+                              value={companyCredentials[selectedCompany]?.instagram?.clientSecret || ''}
+                              onChange={(e) => handleCredentialChange('instagram', 'clientSecret', e.target.value)}
+                              type="password"
+                              size="small"
+                            />
+                          </Grid>
+                        </>
+                      )}
 
-                  {platform.id === 'twitter' && (
-                    <>
-                      <Grid item xs={12} md={6}>
-                        <TextField
-                          fullWidth
-                          label="API Key"
-                          value={companyCredentials[selectedCompany]?.twitter?.apiKey || ''}
-                          onChange={(e) => handleCredentialChange('twitter', 'apiKey', e.target.value)}
-                          type="password"
-                        />
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        <TextField
-                          fullWidth
-                          label="API Secret"
-                          value={companyCredentials[selectedCompany]?.twitter?.apiSecret || ''}
-                          onChange={(e) => handleCredentialChange('twitter', 'apiSecret', e.target.value)}
-                          type="password"
-                        />
-                      </Grid>
-                    </>
-                  )}
+                      {platform.id === 'twitter' && (
+                        <>
+                          <Grid item xs={12} md={6}>
+                            <TextField
+                              fullWidth
+                              label="API Key"
+                              value={companyCredentials[selectedCompany]?.twitter?.apiKey || ''}
+                              onChange={(e) => handleCredentialChange('twitter', 'apiKey', e.target.value)}
+                              type="password"
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} md={6}>
+                            <TextField
+                              fullWidth
+                              label="API Secret"
+                              value={companyCredentials[selectedCompany]?.twitter?.apiSecret || ''}
+                              onChange={(e) => handleCredentialChange('twitter', 'apiSecret', e.target.value)}
+                              type="password"
+                              size="small"
+                            />
+                          </Grid>
+                        </>
+                      )}
 
-                  {platform.id === 'linkedin' && (
-                    <>
-                      <Grid item xs={12} md={6}>
-                        <TextField
-                          fullWidth
-                          label="Client ID"
-                          value={companyCredentials[selectedCompany]?.linkedin?.clientId || ''}
-                          onChange={(e) => handleCredentialChange('linkedin', 'clientId', e.target.value)}
-                          type="password"
-                        />
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        <TextField
-                          fullWidth
-                          label="Client Secret"
-                          value={companyCredentials[selectedCompany]?.linkedin?.clientSecret || ''}
-                          onChange={(e) => handleCredentialChange('linkedin', 'clientSecret', e.target.value)}
-                          type="password"
-                        />
-                      </Grid>
-                    </>
-                  )}
+                      {platform.id === 'linkedin' && (
+                        <>
+                          <Grid item xs={12} md={6}>
+                            <TextField
+                              fullWidth
+                              label="Client ID"
+                              value={companyCredentials[selectedCompany]?.linkedin?.clientId || ''}
+                              onChange={(e) => handleCredentialChange('linkedin', 'clientId', e.target.value)}
+                              type="password"
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} md={6}>
+                            <TextField
+                              fullWidth
+                              label="Client Secret"
+                              value={companyCredentials[selectedCompany]?.linkedin?.clientSecret || ''}
+                              onChange={(e) => handleCredentialChange('linkedin', 'clientSecret', e.target.value)}
+                              type="password"
+                              size="small"
+                            />
+                          </Grid>
+                        </>
+                      )}
 
-                  {platform.id === 'tiktok' && (
-                    <>
-                      <Grid item xs={12} md={6}>
-                        <TextField
-                          fullWidth
-                          label="Client Key"
-                          value={companyCredentials[selectedCompany]?.tiktok?.clientKey || ''}
-                          onChange={(e) => handleCredentialChange('tiktok', 'clientKey', e.target.value)}
-                          type="password"
-                        />
-                      </Grid>
-                      <Grid item xs={12} md={6}>
-                        <TextField
-                          fullWidth
-                          label="Client Secret"
-                          value={companyCredentials[selectedCompany]?.tiktok?.clientSecret || ''}
-                          onChange={(e) => handleCredentialChange('tiktok', 'clientSecret', e.target.value)}
-                          type="password"
-                        />
-                      </Grid>
-                    </>
-                  )}
-
-                  <Grid item xs={12}>
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      {platform.id === 'tiktok' && (
+                        <>
+                          <Grid item xs={12} md={6}>
+                            <TextField
+                              fullWidth
+                              label="Client Key"
+                              value={companyCredentials[selectedCompany]?.tiktok?.clientKey || ''}
+                              onChange={(e) => handleCredentialChange('tiktok', 'clientKey', e.target.value)}
+                              type="password"
+                              size="small"
+                            />
+                          </Grid>
+                          <Grid item xs={12} md={6}>
+                            <TextField
+                              fullWidth
+                              label="Client Secret"
+                              value={companyCredentials[selectedCompany]?.tiktok?.clientSecret || ''}
+                              onChange={(e) => handleCredentialChange('tiktok', 'clientSecret', e.target.value)}
+                              type="password"
+                              size="small"
+                            />
+                          </Grid>
+                        </>
+                      )}
+                    </Grid>
+                    
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
                       <Button 
                         variant="outlined" 
                         size="small"
@@ -419,30 +530,88 @@ const Settings = () => {
                         Verificar Credenciais
                       </Button>
                     </Box>
+
+                    {/* Configurações avançadas específicas da plataforma */}
+                    <Box sx={{ mt: 3 }}>
+                      <Typography variant="subtitle2" color="primary" gutterBottom>
+                        Configurações Avançadas
+                      </Typography>
+                      
+                      <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+                        {platform.id === 'youtube' && (
+                          <Grid container spacing={2}>
+                            <Grid item xs={12}>
+                              <FormControlLabel
+                                control={
+                                  <Switch
+                                    checked={true}
+                                    name="autoPublish"
+                                    size="small"
+                                  />
+                                }
+                                label="Publicar automaticamente novos episódios"
+                              />
+                            </Grid>
+                            <Grid item xs={12}>
+                              <FormControlLabel
+                                control={
+                                  <Switch
+                                    checked={false}
+                                    name="privacyMode"
+                                    size="small"
+                                  />
+                                }
+                                label="Definir vídeos como privados por padrão"
+                              />
+                            </Grid>
+                          </Grid>
+                        )}
+                        
+                        {platform.id === 'instagram' && (
+                          <Grid container spacing={2}>
+                            <Grid item xs={12}>
+                              <FormControlLabel
+                                control={
+                                  <Switch
+                                    checked={true}
+                                    name="autoPublish"
+                                    size="small"
+                                  />
+                                }
+                                label="Publicar automaticamente novos episódios"
+                              />
+                            </Grid>
+                          </Grid>
+                        )}
+                        
+                        {(platform.id === 'twitter' || platform.id === 'linkedin' || platform.id === 'tiktok') && (
+                          <Typography variant="body2" color="text.secondary">
+                            Nenhuma configuração avançada disponível para esta plataforma.
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
                   </Grid>
                 </Grid>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-        <Button 
-          variant="outlined" 
-          color="primary" 
-          startIcon={<Add />}
-          sx={{ mr: 1 }}
-        >
-          Adicionar Empresa
-        </Button>
-      </Box>
-    </Box>
-  );
-
-  const renderPlatformSettings = () => (
-    <Box sx={{ mt: 2 }}>
-      <SocialMediaHub />
+              </Collapse>
+            </CardContent>
+          </Card>
+        );
+      })}
+      
+      {/* Botão para adicionar novas empresas */}
+      {isAdmin && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+          <Button 
+            variant="outlined" 
+            color="primary" 
+            startIcon={<Add />}
+            sx={{ mr: 1 }}
+          >
+            Adicionar Empresa
+          </Button>
+        </Box>
+      )}
     </Box>
   );
 
@@ -564,21 +733,7 @@ const Settings = () => {
               <Typography variant="h6">Gerenciamento de Redes Sociais</Typography>
             </AccordionSummary>
             <AccordionDetails>
-              <Tabs 
-                value={socialMediaTab} 
-                onChange={handleSocialMediaTabChange}
-                variant="fullWidth"
-                sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}
-              >
-                <Tab label="Status de Conexões" />
-                <Tab label="Credenciais por Empresa" />
-                <Tab label="Configurações de Plataformas" />
-              </Tabs>
-
-              {/* Conteúdo baseado na guia selecionada */}
-              {socialMediaTab === 0 && renderConnectionStatus()}
-              {socialMediaTab === 1 && renderCompanyCredentials()}
-              {socialMediaTab === 2 && renderPlatformSettings()}
+              {renderSocialMediaManagement()}
             </AccordionDetails>
           </Accordion>
         </Grid>
