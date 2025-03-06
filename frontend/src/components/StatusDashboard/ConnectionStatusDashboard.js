@@ -17,7 +17,7 @@ import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import { useNavigate } from 'react-router-dom';
 
 // Serviços de conexão com as redes sociais
-import { checkAllConnections } from '../../services/monitoring/connectionMonitor';
+import connectionMonitor from '../../services/monitoring/connectionMonitor';
 
 const PLATFORMS = [
   { 
@@ -52,8 +52,7 @@ const PLATFORMS = [
   }
 ];
 
-// Importar o serviço para comunicação com o servidor
-import { checkAllConnections } from '../../services/monitoring/connectionMonitor';
+// Já importamos o serviço de conexão acima
 
 function ConnectionStatusDashboard() {
   const [connectionStatus, setConnectionStatus] = useState({});
@@ -71,7 +70,7 @@ function ConnectionStatusDashboard() {
     
     try {
       // Usando o serviço real para verificar conexões
-      const statuses = await checkAllConnections();
+      const statuses = await connectionMonitor.checkAllConnections();
       setConnectionStatus(statuses);
       setLastRefresh(new Date());
     } catch (error) {
