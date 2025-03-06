@@ -186,6 +186,7 @@ function ConnectionStatusDashboard() {
             >
               {loading ? 'Atualizando...' : 'Atualizar Status'}
             </Button>
+          </Box>
           
           {lastRefresh && (
             <Typography variant="caption" display="block" sx={{ textAlign: 'right', mt: 0.5 }}>
@@ -202,51 +203,52 @@ function ConnectionStatusDashboard() {
       ) : (
         <Box sx={{ maxHeight: '60vh', overflow: 'auto' }}>
           <Grid container spacing={2}>
-          {PLATFORMS.map((platform) => {
-            const status = connectionStatus[platform.id];
-            
-            return (
-              <Grid item xs={12} sm={6} md={4} key={platform.id}>
-                <Card variant="outlined">
-                  <CardContent>
-                    <Box sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'space-between', 
-                      mb: 2 
-                    }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        {platform.icon}
-                        <Typography variant="subtitle1" sx={{ ml: 1 }}>
-                          {platform.name}
-                        </Typography>
+            {PLATFORMS.map((platform) => {
+              const status = connectionStatus[platform.id];
+              
+              return (
+                <Grid item xs={12} sm={6} md={4} key={platform.id}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between', 
+                        mb: 2 
+                      }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          {platform.icon}
+                          <Typography variant="subtitle1" sx={{ ml: 1 }}>
+                            {platform.name}
+                          </Typography>
+                        </Box>
+                        
+                        <Tooltip title={getStatusText(status)}>
+                          <Box>{getStatusIcon(status)}</Box>
+                        </Tooltip>
                       </Box>
                       
-                      <Tooltip title={getStatusText(status)}>
-                        <Box>{getStatusIcon(status)}</Box>
-                      </Tooltip>
-                    </Box>
-                    
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      {getStatusChip(status)}
-                      
-                      {(!status || !status.connected || 
-                        (status.tokenExpiresIn && status.tokenExpiresIn < 10)) && (
-                        <Button 
-                          size="small" 
-                          color="primary" 
-                          onClick={() => handleReconnect(platform.id)}
-                        >
-                          Reconectar
-                        </Button>
-                      )}
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            );
-          })}
-        </Grid>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        {getStatusChip(status)}
+                        
+                        {(!status || !status.connected || 
+                          (status.tokenExpiresIn && status.tokenExpiresIn < 10)) && (
+                          <Button 
+                            size="small" 
+                            color="primary" 
+                            onClick={() => handleReconnect(platform.id)}
+                          >
+                            Reconectar
+                          </Button>
+                        )}
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              );
+            })}
+          </Grid>
+        </Box>
       )}
       
       <Box sx={{ mt: 2 }}>
