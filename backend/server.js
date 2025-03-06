@@ -23,7 +23,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Banco de dados em memória simulado para desenvolvimento
+// Importar a conexão real com MongoDB
+const connectDB = require('./config/db');
+
+// Ainda mantemos um banco em memória como fallback
 const memoryDb = {
   users: [
     {
@@ -38,15 +41,32 @@ const memoryDb = {
   publications: []
 };
 
-console.log('⚠️ Usando banco de dados em memória para desenvolvimento ⚠️');
+// Vamos tentar conectar ao MongoDB real, mas usar o banco em memória como fallback se falhar
+let usingMemoryDb = false;
 
-// Função simplificada para iniciar o servidor
+// Função para iniciar o servidor
 const startServer = async () => {
-  // Não tente conectar a um banco de dados, use apenas o memoryDb
-  console.log('Iniciando servidor em modo de desenvolvimento (sem banco de dados)');
+  console.log('Iniciando servidor...');
   
-  // Vamos considerar que o servidor está sempre "conectado" no modo de desenvolvimento
-  const dbConnected = true;
+  // Tentar conectar ao MongoDB
+  let dbConnected = false;
+  
+  try {
+    dbConnected = await connectDB();
+    
+    if (dbConnected) {
+      console.log('✅ Conectado ao MongoDB com sucesso!');
+      usingMemoryDb = false;
+    } else {
+      console.log('⚠️ Falha ao conectar ao MongoDB, usando banco de dados em memória como fallback');
+      usingMemoryDb = true;
+    }
+  } catch (error) {
+    console.error('❌ Erro ao conectar ao MongoDB:', error.message);
+    console.log('⚠️ Usando banco de dados em memória como fallback');
+    usingMemoryDb = true;
+    dbConnected = true; // para continuar inicialização do servidor
+  }
 
   // Rotas básicas
   app.get('/', (req, res) => {
@@ -85,43 +105,85 @@ const startServer = async () => {
     try {
       const { name, email, password, role } = req.body;
       
-      // Verificar se o usuário já existe
-      const userExists = memoryDb.users.find(u => u.email === email);
-      
-      if (userExists) {
-        return res.status(400).json({
-          success: false,
-          message: 'Usuário já existe'
-        });
-      }
-      
-      // Criar hash da senha
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-      
-      // Criar novo usuário
-      const newUser = {
-        _id: `user_${Date.now()}`,
-        name,
-        email, 
-        password: hashedPassword,
-        role: role || 'viewer'
-      };
-      
-      // Adicionar ao "banco de dados"
-      memoryDb.users.push(newUser);
-      
-      // Responder com dados do usuário (sem a senha)
-      res.status(201).json({
-        success: true,
-        data: {
-          _id: newUser._id,
-          name: newUser.name,
-          email: newUser.email,
-          role: newUser.role,
-          token: generateToken(newUser._id)
+      if (usingMemoryDb) {
+        // Usar banco em memória
+        const userExists = memoryDb.users.find(u => u.email === email);
+        
+        if (userExists) {
+          return res.status(400).json({
+            success: false,
+            message: 'Usuário já existe'
+          });
         }
-      });
+        
+        // Criar hash da senha
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+        
+        // Criar novo usuário
+        const newUser = {
+          _id: `user_${Date.now()}`,
+          name,
+          email, 
+          password: hashedPassword,
+          role: role || 'viewer'
+        };
+        
+        // Adicionar ao "banco de dados" em memória
+        memoryDb.users.push(newUser);
+        
+        // Responder com dados do usuário (sem a senha)
+        res.status(201).json({
+          success: true,
+          data: {
+            _id: newUser._id,
+            name: newUser.name,
+            email: newUser.email,
+            role: newUser.role,
+            token: generateToken(newUser._id)
+          }
+        });
+      } else {
+        // Usar MongoDB real
+        // Importar modelo User quando usando banco real
+        const User = require('./models/User');
+        
+        // Verificar se o usuário já existe
+        const userExists = await User.findOne({ email });
+        
+        if (userExists) {
+          return res.status(400).json({
+            success: false,
+            message: 'Usuário já existe'
+          });
+        }
+        
+        // Criar novo usuário no MongoDB
+        const user = await User.create({
+          name,
+          email,
+          password, // O modelo User já faz o hash da senha
+          role: role || 'viewer'
+        });
+        
+        if (user) {
+          res.status(201).json({
+            success: true,
+            data: {
+              _id: user._id,
+              name: user.name,
+              email: user.email,
+              role: user.role,
+              token: generateToken(user._id)
+            }
+          });
+        } else {
+          res.status(400).json({
+            success: false,
+            message: 'Dados de usuário inválidos'
+          });
+        }
+      }
     } catch (error) {
       console.error('Erro no registro:', error);
       res.status(500).json({
@@ -137,37 +199,75 @@ const startServer = async () => {
     try {
       const { email, password } = req.body;
       
-      // Buscar usuário
-      const user = memoryDb.users.find(u => u.email === email);
-      
-      if (user && await bcrypt.compare(password, user.password)) {
-        // Usuário encontrado e senha correta
+      if (usingMemoryDb) {
+        // Usar banco em memória
+        const user = memoryDb.users.find(u => u.email === email);
         
-        // Inicializar tokens do usuário (se existirem)
-        try {
-          await tokenRefresher.initUserTokens(user._id);
-          console.log(`Tokens inicializados para usuário ${user._id}`);
-        } catch (tokenError) {
-          console.warn('Erro ao inicializar tokens:', tokenError.message);
-          // Continuar mesmo com erro na inicialização dos tokens
-        }
-        
-        res.json({
-          success: true,
-          data: {
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            token: generateToken(user._id)
+        if (user && await bcrypt.compare(password, user.password)) {
+          // Usuário encontrado e senha correta
+          
+          // Inicializar tokens do usuário (se existirem)
+          try {
+            await tokenRefresher.initUserTokens(user._id);
+            console.log(`Tokens inicializados para usuário ${user._id}`);
+          } catch (tokenError) {
+            console.warn('Erro ao inicializar tokens:', tokenError.message);
+            // Continuar mesmo com erro na inicialização dos tokens
           }
-        });
+          
+          res.json({
+            success: true,
+            data: {
+              _id: user._id,
+              name: user.name,
+              email: user.email,
+              role: user.role,
+              token: generateToken(user._id)
+            }
+          });
+        } else {
+          // Credenciais inválidas
+          res.status(401).json({
+            success: false,
+            message: 'Email ou senha inválidos'
+          });
+        }
       } else {
-        // Credenciais inválidas
-        res.status(401).json({
-          success: false,
-          message: 'Email ou senha inválidos'
-        });
+        // Usar MongoDB real
+        const User = require('./models/User');
+        
+        // Buscar usuário no MongoDB
+        const user = await User.findOne({ email });
+        
+        if (user && await bcrypt.compare(password, user.password)) {
+          // Usuário encontrado e senha correta
+          
+          // Inicializar tokens do usuário (se existirem)
+          try {
+            await tokenRefresher.initUserTokens(user._id);
+            console.log(`Tokens inicializados para usuário ${user._id}`);
+          } catch (tokenError) {
+            console.warn('Erro ao inicializar tokens:', tokenError.message);
+            // Continuar mesmo com erro na inicialização dos tokens
+          }
+          
+          res.json({
+            success: true,
+            data: {
+              _id: user._id,
+              name: user.name,
+              email: user.email,
+              role: user.role,
+              token: generateToken(user._id)
+            }
+          });
+        } else {
+          // Credenciais inválidas
+          res.status(401).json({
+            success: false,
+            message: 'Email ou senha inválidos'
+          });
+        }
       }
     } catch (error) {
       console.error('Erro no login:', error);
@@ -180,20 +280,49 @@ const startServer = async () => {
   });
 
   // Rota de perfil
-  app.get('/api/auth/profile', auth, (req, res) => {
-    const user = memoryDb.users.find(u => u._id === req.user._id);
-    
-    if (user) {
-      // Omitir a senha
-      const { password, ...userWithoutPassword } = user;
-      res.json({
-        success: true,
-        data: userWithoutPassword
-      });
-    } else {
-      res.status(404).json({
+  app.get('/api/auth/profile', auth, async (req, res) => {
+    try {
+      if (usingMemoryDb) {
+        // Usar banco em memória
+        const user = memoryDb.users.find(u => u._id === req.user._id);
+        
+        if (user) {
+          // Omitir a senha
+          const { password, ...userWithoutPassword } = user;
+          res.json({
+            success: true,
+            data: userWithoutPassword
+          });
+        } else {
+          res.status(404).json({
+            success: false,
+            message: 'Usuário não encontrado'
+          });
+        }
+      } else {
+        // Usar MongoDB real
+        const User = require('./models/User');
+        
+        const user = await User.findById(req.user._id).select('-password');
+        
+        if (user) {
+          res.json({
+            success: true,
+            data: user
+          });
+        } else {
+          res.status(404).json({
+            success: false,
+            message: 'Usuário não encontrado'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao buscar perfil:', error);
+      res.status(500).json({
         success: false,
-        message: 'Usuário não encontrado'
+        message: 'Erro ao buscar perfil',
+        error: error.message
       });
     }
   });
@@ -258,7 +387,9 @@ const startServer = async () => {
   // Obter URL de autenticação
   app.get('/api/youtube/auth-url', auth, (req, res) => {
     try {
-      const authUrl = youtubeService.getAuthUrl();
+      const userId = req.user._id;
+      const authUrl = youtubeService.getAuthUrl(userId);
+      
       res.json({
         success: true,
         authUrl
@@ -276,7 +407,8 @@ const startServer = async () => {
   // Redirecionar para autorização do YouTube
   app.get('/api/youtube/auth', auth, (req, res) => {
     try {
-      const authUrl = youtubeService.getAuthUrl();
+      const userId = req.user._id;
+      const authUrl = youtubeService.getAuthUrl(userId);
       res.redirect(authUrl);
     } catch (error) {
       console.error('Erro ao redirecionar para autorização:', error);
@@ -288,7 +420,7 @@ const startServer = async () => {
     }
   });
   
-  // Simular armazenamento de tokens
+  // Armazenamento temporário para uso em desenvolvimento
   const activeTokens = {};
   
   // Callback de autorização
@@ -300,24 +432,48 @@ const startServer = async () => {
         throw new Error('Código de autorização não fornecido');
       }
       
-      // Simular chamada para obter tokens
-      const tokens = {
-        access_token: 'youtube_' + Math.random().toString(36).substring(2, 15),
-        refresh_token: 'refresh_' + Math.random().toString(36).substring(2, 15),
-        expiry_date: Date.now() + (60 * 60 * 1000) // Expira em 1 hora
-      };
+      let userId = state;
       
-      // Simular armazenamento no banco de dados
-      // Em um ambiente real, isso seria associado ao usuário atual
-      activeTokens.youtube = {
-        ...tokens,
-        userId: state || 'user123', // Em um cenário real, usaríamos o state para identificar o usuário
-        channel_id: 'UC_dummy_channel_id',
-        created_at: new Date().toISOString()
-      };
+      // Verificar se estamos usando banco real ou simulação
+      if (!usingMemoryDb) {
+        // Usar serviço real para trocar o código por tokens
+        const tokenData = await youtubeService.getTokensFromCode(code, state);
+        
+        // Salvar os tokens no banco de dados
+        const YouTubeToken = require('./models/YouTubeToken');
+        
+        const result = await YouTubeToken.findOneAndUpdate(
+          { user: userId },
+          { 
+            access_token: tokenData.access_token,
+            refresh_token: tokenData.refresh_token,
+            expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)),
+            channel_id: tokenData.channel_id,
+          },
+          { new: true, upsert: true }
+        );
+        
+        console.log('Token salvo no banco de dados:', result._id);
+      } else {
+        // Simulação para desenvolvimento
+        const tokens = {
+          access_token: 'youtube_' + Math.random().toString(36).substring(2, 15),
+          refresh_token: 'refresh_' + Math.random().toString(36).substring(2, 15),
+          expiry_date: Date.now() + (60 * 60 * 1000) // Expira em 1 hora
+        };
+        
+        // Armazenar em memória
+        activeTokens.youtube = {
+          ...tokens,
+          userId: state || 'user123',
+          channel_id: 'UC_dummy_channel_id',
+          created_at: new Date().toISOString()
+        };
+        
+        console.log('Token simulado salvo:', activeTokens.youtube);
+      }
       
-      console.log('Token salvo:', activeTokens.youtube);
-      
+      // Página de sucesso
       res.send(`
         <html>
         <head>
@@ -328,6 +484,15 @@ const startServer = async () => {
             .info { margin: 20px 0; }
             button { padding: 10px 15px; background: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer; }
           </style>
+          <script>
+            // Script para comunicar com a janela principal
+            window.onload = function() {
+              if (window.opener) {
+                // Enviar mensagem para a janela principal que abriu esta
+                window.opener.postMessage({ type: 'OAUTH_SUCCESS', platform: 'youtube' }, '*');
+              }
+            }
+          </script>
         </head>
         <body>
           <h1>Autorização Concluída!</h1>
@@ -348,6 +513,14 @@ const startServer = async () => {
             body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
             .error { color: red; font-size: 18px; }
           </style>
+          <script>
+            // Script para comunicar erro com a janela principal
+            window.onload = function() {
+              if (window.opener) {
+                window.opener.postMessage({ type: 'OAUTH_ERROR', platform: 'youtube', error: '${error.message}' }, '*');
+              }
+            }
+          </script>
         </head>
         <body>
           <h1>Erro na Autorização</h1>
@@ -361,64 +534,167 @@ const startServer = async () => {
   });
   
   // Verificar conexão com YouTube
-  app.get('/api/youtube/check-connection', auth, (req, res) => {
-    // Verificar se temos um token ativo
-    if (activeTokens.youtube) {
-      const now = Date.now();
-      const isExpired = now > activeTokens.youtube.expiry_date;
-      
-      res.json({
-        success: true,
-        connected: !isExpired,
-        expired: isExpired,
-        channel_id: activeTokens.youtube.channel_id,
-        message: isExpired ? 'Token expirado' : 'Conectado'
-      });
-    } else {
-      res.json({
-        success: true,
-        connected: false,
-        message: 'Nenhum token encontrado para este usuário'
+  app.get('/api/youtube/check-connection', auth, async (req, res) => {
+    const userId = req.user._id;
+    
+    try {
+      if (!usingMemoryDb) {
+        // Usar banco real
+        const YouTubeToken = require('./models/YouTubeToken');
+        
+        const tokenDoc = await YouTubeToken.findOne({ user: userId });
+        
+        if (!tokenDoc) {
+          return res.json({
+            success: true,
+            connected: false,
+            message: 'Nenhum token encontrado para este usuário'
+          });
+        }
+        
+        const now = Date.now();
+        const isExpired = now > new Date(tokenDoc.expires_at).getTime();
+        
+        // Se expirado, tentar renovar
+        if (isExpired) {
+          try {
+            // Tentar renovar o token
+            const renewed = await tokenRefresher.refreshToken(userId, 'youtube');
+            
+            if (renewed) {
+              // Buscar token renovado
+              const updatedToken = await YouTubeToken.findOne({ user: userId });
+              
+              return res.json({
+                success: true,
+                connected: true,
+                channel_id: updatedToken.channel_id,
+                message: 'Token renovado automaticamente',
+                tokenExpiresIn: Math.floor((new Date(updatedToken.expires_at).getTime() - now) / (1000 * 60 * 60 * 24)) // em dias
+              });
+            }
+          } catch (refreshError) {
+            console.error('Erro ao renovar token:', refreshError);
+          }
+          
+          return res.json({
+            success: true,
+            connected: false,
+            expired: true,
+            channel_id: tokenDoc.channel_id,
+            message: 'Token expirado e não foi possível renovar'
+          });
+        }
+        
+        // Token válido
+        return res.json({
+          success: true,
+          connected: true,
+          channel_id: tokenDoc.channel_id,
+          message: 'Conectado',
+          tokenExpiresIn: Math.floor((new Date(tokenDoc.expires_at).getTime() - now) / (1000 * 60 * 60 * 24)) // em dias
+        });
+      } else {
+        // Simulação para desenvolvimento
+        if (activeTokens.youtube) {
+          const now = Date.now();
+          const isExpired = now > activeTokens.youtube.expiry_date;
+          
+          res.json({
+            success: true,
+            connected: !isExpired,
+            expired: isExpired,
+            channel_id: activeTokens.youtube.channel_id,
+            message: isExpired ? 'Token expirado' : 'Conectado',
+            tokenExpiresIn: isExpired ? 0 : Math.floor((activeTokens.youtube.expiry_date - now) / (1000 * 60 * 60 * 24)) // em dias
+          });
+        } else {
+          res.json({
+            success: true,
+            connected: false,
+            message: 'Nenhum token encontrado para este usuário'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao verificar conexão:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erro ao verificar conexão com YouTube',
+        error: error.message
       });
     }
   });
   
   // Canal do YouTube
-  app.get('/api/youtube/channel/stats', auth, (req, res) => {
-    // Verificar se temos um token ativo
-    if (activeTokens.youtube) {
-      const now = Date.now();
-      const isExpired = now > activeTokens.youtube.expiry_date;
-      
-      if (isExpired) {
-        return res.status(401).json({
-          success: false,
-          message: 'Token expirado. Por favor, reconecte sua conta.',
-          expired: true
-        });
-      }
-      
-      // Simulação de dados do canal
-      res.json({
-        success: true,
-        data: {
-          id: activeTokens.youtube.channel_id,
-          title: 'Lancei Essa Podcast',
-          description: 'Canal oficial do podcast Lancei Essa',
-          subscriberCount: 12500,
-          viewCount: 250000,
-          videoCount: 45,
-          token: {
-            createdAt: activeTokens.youtube.created_at,
-            expiresAt: new Date(activeTokens.youtube.expiry_date).toISOString()
+  app.get('/api/youtube/channel/stats', auth, async (req, res) => {
+    const userId = req.user._id;
+    
+    try {
+      if (!usingMemoryDb) {
+        // Usar serviço real
+        try {
+          const channelData = await youtubeService.getChannelStats(userId);
+          
+          return res.json({
+            success: true,
+            data: channelData
+          });
+        } catch (error) {
+          if (error.message.includes('Token expirado')) {
+            return res.status(401).json({
+              success: false,
+              message: 'Token expirado. Por favor, reconecte sua conta.',
+              expired: true
+            });
           }
+          
+          throw error;
         }
-      });
-    } else {
-      res.status(401).json({
+      } else {
+        // Verificar se temos um token ativo
+        if (activeTokens.youtube) {
+          const now = Date.now();
+          const isExpired = now > activeTokens.youtube.expiry_date;
+          
+          if (isExpired) {
+            return res.status(401).json({
+              success: false,
+              message: 'Token expirado. Por favor, reconecte sua conta.',
+              expired: true
+            });
+          }
+          
+          // Simulação de dados do canal
+          res.json({
+            success: true,
+            data: {
+              id: activeTokens.youtube.channel_id,
+              title: 'Lancei Essa Podcast',
+              description: 'Canal oficial do podcast Lancei Essa',
+              subscriberCount: 12500,
+              viewCount: 250000,
+              videoCount: 45,
+              token: {
+                createdAt: activeTokens.youtube.created_at,
+                expiresAt: new Date(activeTokens.youtube.expiry_date).toISOString()
+              }
+            }
+          });
+        } else {
+          res.status(401).json({
+            success: false,
+            message: 'Não autenticado no YouTube',
+            connected: false
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao obter estatísticas do canal:', error);
+      res.status(500).json({
         success: false,
-        message: 'Não autenticado no YouTube',
-        connected: false
+        message: 'Erro ao obter estatísticas do canal',
+        error: error.message
       });
     }
   });

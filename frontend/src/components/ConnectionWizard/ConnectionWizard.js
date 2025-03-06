@@ -87,6 +87,79 @@ function ConnectionWizard() {
     checkAllConnections();
   }, []);
 
+  // Adicionando um listener para mensagens entre janelas
+  useEffect(() => {
+    // Função para lidar com mensagens da janela OAuth
+    const handleOAuthMessage = (event) => {
+      // Verificar a origem da mensagem para segurança
+      // Em produção, você limitaria isso apenas ao seu domínio
+      
+      const message = event.data;
+      
+      // Verificar se é uma mensagem OAuth
+      if (message && (message.type === 'OAUTH_SUCCESS' || message.type === 'OAUTH_ERROR')) {
+        console.log('Recebido retorno do OAuth:', message);
+        
+        // Ação baseada no tipo de mensagem
+        if (message.type === 'OAUTH_SUCCESS') {
+          // Autenticação bem-sucedida
+          setError({
+            severity: 'success',
+            message: `Conexão com ${message.platform} realizada com sucesso!`
+          });
+          
+          // Atualizar status de conexão
+          refreshConnectionStatus();
+        } else {
+          // Erro na autenticação
+          setError({
+            severity: 'error',
+            message: message.error || `Erro ao conectar com ${message.platform}`
+          });
+        }
+        
+        setLoading(false);
+      }
+    };
+    
+    // Adicionar o listener
+    window.addEventListener('message', handleOAuthMessage);
+    
+    // Remover listener ao desmontar
+    return () => {
+      window.removeEventListener('message', handleOAuthMessage);
+    };
+  }, []);
+  
+  // Função para atualizar status de conexão
+  const refreshConnectionStatus = async () => {
+    setLoading(true);
+    
+    try {
+      const statuses = {};
+      
+      for (const platform of PLATFORMS) {
+        if (platform.service) {
+          try {
+            const status = await platform.service.checkConnection();
+            statuses[platform.id] = status.connected;
+          } catch (err) {
+            console.error(`Erro ao verificar conexão com ${platform.name}:`, err);
+            statuses[platform.id] = false;
+          }
+        } else {
+          statuses[platform.id] = false;
+        }
+      }
+      
+      setConnectionStatus(statuses);
+    } catch (error) {
+      console.error('Erro ao atualizar status de conexões:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleConnect = async (platform) => {
     setLoading(true);
     setError(null);
@@ -102,11 +175,10 @@ function ConnectionWizard() {
       // Abre a URL de autenticação em uma nova janela
       window.open(authUrl, '_blank', 'width=600,height=700');
       
-      // Aqui idealmente teríamos um listener para quando a autenticação for concluída
-      // Por agora, vamos apenas mostrar instruções para o usuário
+      // Mostrar instruções enquanto aguarda callback
       setError({
         severity: 'info',
-        message: `Por favor, complete a autenticação na janela aberta e retorne aqui quando concluir.`
+        message: `Por favor, complete a autenticação na janela aberta. Aguardando confirmação...`
       });
       
     } catch (err) {
@@ -115,7 +187,6 @@ function ConnectionWizard() {
         severity: 'error',
         message: `Não foi possível conectar ao ${platform.name}: ${err.message}`
       });
-    } finally {
       setLoading(false);
     }
   };
