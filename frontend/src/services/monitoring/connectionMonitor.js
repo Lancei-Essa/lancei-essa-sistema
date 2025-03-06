@@ -1,5 +1,19 @@
 import api from '../api';
 
+// Simulação para APIs que ainda não estão implementadas
+const mockCheckConnections = async () => {
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  return {
+    youtube: { connected: true, lastCheck: new Date(), tokenExpiresIn: 30 },
+    instagram: { connected: true, lastCheck: new Date(), tokenExpiresIn: 60 },
+    twitter: { connected: false, lastCheck: new Date(), error: 'Token expirado' },
+    linkedin: { connected: true, lastCheck: new Date(), tokenExpiresIn: 5 },
+    spotify: { connected: true, lastCheck: new Date(), tokenExpiresIn: 45 },
+    tiktok: { connected: false, lastCheck: new Date(), error: 'Conexão não implementada' }
+  };
+};
+
 // Intervalo padrão para verificação automática de conexões (em milissegundos)
 const DEFAULT_CHECK_INTERVAL = 24 * 60 * 60 * 1000; // 24 horas
 
@@ -21,13 +35,19 @@ let checkInterval = null;
  */
 export const checkConnection = async (platform) => {
   try {
-    const response = await api.get(`/api/${platform}/check-connection`);
+    // Em produção, substituir pelo código abaixo:
+    // const response = await api.get(`/api/${platform}/check-connection`);
+    
+    // Para desenvolvimento, usamos o mock
+    const mockResults = await mockCheckConnections();
+    const mockResult = mockResults[platform];
+    
     return {
-      connected: response.data.connected,
-      error: response.data.error || null,
-      tokenExpiresIn: response.data.tokenExpiresIn || null,
+      connected: mockResult.connected,
+      error: mockResult.error || null,
+      tokenExpiresIn: mockResult.tokenExpiresIn || null,
       lastCheck: new Date(),
-      profile: response.data.profile || null,
+      profile: mockResult.profile || null,
     };
   } catch (error) {
     console.error(`Erro ao verificar conexão com ${platform}:`, error);
@@ -46,21 +66,19 @@ export const checkConnection = async (platform) => {
  * @returns {Promise<Object>} - Status de todas as conexões
  */
 export const checkAllConnections = async () => {
-  const results = {};
-  
-  // Verificar cada plataforma em paralelo para melhor performance
-  const checkPromises = PLATFORMS.map(async (platform) => {
-    const result = await checkConnection(platform);
-    results[platform] = result;
-  });
-  
-  await Promise.all(checkPromises);
-  
-  // Atualizar cache
-  connectionStatusCache = { ...results };
-  lastCheckTimestamp = new Date();
-  
-  return results;
+  try {
+    // Para desenvolvimento, usamos o mock
+    const results = await mockCheckConnections();
+    
+    // Atualizar cache
+    connectionStatusCache = { ...results };
+    lastCheckTimestamp = new Date();
+    
+    return results;
+  } catch (error) {
+    console.error("Erro ao verificar todas as conexões:", error);
+    return {};
+  }
 };
 
 /**
@@ -70,13 +88,15 @@ export const checkAllConnections = async () => {
  */
 export const attemptReconnect = async (platform) => {
   try {
-    // Aqui seria implementada a lógica para iniciar o fluxo de reconexão
-    // dependendo da plataforma. Poderia retornar uma URL para o fluxo OAuth
-    const response = await api.post(`/api/${platform}/reconnect`);
+    // Em produção, descomentar o código abaixo:
+    // const response = await api.post(`/api/${platform}/reconnect`);
+    
+    // Para desenvolvimento, simulamos uma resposta
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
     return {
       success: true,
-      authUrl: response.data.authUrl,
+      authUrl: `http://localhost:5002/api/${platform}/auth`,
       message: 'Reconexão iniciada com sucesso'
     };
   } catch (error) {

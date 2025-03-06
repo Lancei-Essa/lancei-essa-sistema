@@ -107,3 +107,32 @@ export const getInstagramMetrics = async () => {
     };
   }
 };
+
+/**
+ * Verifica o status da conexão
+ * @returns {Promise<Object>} Status da conexão
+ */
+export const checkConnection = async () => {
+  return checkInstagramConnection();
+};
+
+/**
+ * Obtém URL de autenticação
+ * @returns {Promise<string>} URL de autenticação
+ */
+export const getAuthUrl = async () => {
+  const response = await getInstagramAuthUrl();
+  return response.authUrl;
+};
+
+// Exportação padrão para compatibilidade
+const instagramService = {
+  checkConnection,
+  getAuthUrl,
+  disconnectInstagram,
+  postToInstagram,
+  scheduleInstagramPost,
+  getInstagramMetrics
+};
+
+export default instagramService;

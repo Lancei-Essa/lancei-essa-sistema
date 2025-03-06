@@ -86,3 +86,32 @@ export const getYouTubeChannelStats = async () => {
     throw error.response?.data || { success: false, message: 'Erro ao obter estatísticas do canal' };
   }
 };
+
+/**
+ * Verifica o status da conexão
+ * @returns {Promise<Object>} Status da conexão
+ */
+export const checkConnection = async () => {
+  return checkYouTubeConnection();
+};
+
+/**
+ * Obtém URL de autenticação
+ * @returns {Promise<string>} URL de autenticação
+ */
+export const getAuthUrl = async () => {
+  const response = await getYouTubeAuthUrl();
+  return response.authUrl;
+};
+
+// Exportação padrão para compatibilidade
+const youtubeService = {
+  checkConnection,
+  getAuthUrl,
+  uploadToYouTube,
+  scheduleYouTubeVideo,
+  getYouTubeVideoInfo,
+  getYouTubeChannelStats
+};
+
+export default youtubeService;
