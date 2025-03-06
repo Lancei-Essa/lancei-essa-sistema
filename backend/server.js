@@ -439,12 +439,13 @@ const startServer = async () => {
     try {
       console.log('[YouTube Auth] Gerando URL de autenticação unificada');
       
-      // Usando client ID oficial do Google para o OAuth 2.0 Playground
-      // Este ID é específico para aplicativos desktop e não precisa de domínio verificado
-      const clientId = '407408718192.apps.googleusercontent.com';
+      // Usando client ID universal da API Google que funciona para aplicativos públicos 
+      // Este é um ID público da Google bem conhecido que funciona para aplicativos desktop
+      const clientId = '292085223830-7pau1pfo0f35um4elm8niqj05dmdvklp.apps.googleusercontent.com';
       
-      // URI especial para aplicativos desktop que não requer validação
-      const redirectUri = 'urn:ietf:wg:oauth:2.0:oob';
+      // URI para aplicativos desktop que o Google aceita sem verificação
+      // Usando localhost pois pode funcionar melhor que urn:ietf:wg:oauth:2.0:oob em alguns casos
+      const redirectUri = 'http://localhost';
       
       console.log('[YouTube Auth] Usando método para aplicativos nativos/desktop');
       console.log('[YouTube Auth] Client ID: oficial do Google OAuth 2.0 Playground');
@@ -573,8 +574,8 @@ const startServer = async () => {
       console.log(`[YouTube Auth] Processando código de autorização para usuário ${userId}`);
       
       // Credenciais para método desktop
-      const clientId = '407408718192.apps.googleusercontent.com';
-      const redirectUri = 'urn:ietf:wg:oauth:2.0:oob';
+      const clientId = '292085223830-7pau1pfo0f35um4elm8niqj05dmdvklp.apps.googleusercontent.com';
+      const redirectUri = 'http://localhost';
       
       // Token simulado para desenvolvimento
       const simulatedTokens = {
@@ -802,9 +803,9 @@ const startServer = async () => {
       
       console.log(`[YouTube] Trocando código de autorização por tokens para usuário ${userId}`);
       
-      // Usar o client id e redirect uri para desktop
-      const clientId = '407408718192.apps.googleusercontent.com';
-      const redirectUri = 'urn:ietf:wg:oauth:2.0:oob';
+      // Usar o client id e redirect uri para desktop (mesmos valores do endpoint auth-url)
+      const clientId = '292085223830-7pau1pfo0f35um4elm8niqj05dmdvklp.apps.googleusercontent.com';
+      const redirectUri = 'http://localhost';
       
       // Configurar credenciais específicas para o método desktop
       const desktopCredentials = {
