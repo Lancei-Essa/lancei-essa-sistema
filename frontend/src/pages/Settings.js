@@ -280,29 +280,11 @@ const Settings = () => {
         </Box>
       </Box>
 
-      {/* Grid de plataformas como substituto da visão geral */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        {PLATFORMS.map((platform) => {
-          const status = connectionStatus[platform.id];
-          return (
-            <Grid item key={platform.id} xs={6} sm={4} md={2}>
-              <Chip
-                icon={platform.icon}
-                label={platform.name}
-                variant={status?.connected ? "filled" : "outlined"}
-                color={status?.connected ? "success" : "default"}
-                onClick={() => handlePlatformToggle(platform.id)}
-                sx={{ width: '100%', justifyContent: 'flex-start', py: 1 }}
-              />
-            </Grid>
-          );
-        })}
-      </Grid>
 
       {/* Detalhes e configurações por plataforma */}
       <Alert severity="info" sx={{ mb: 3 }}>
-        Selecione uma plataforma abaixo para ver e gerenciar suas configurações.
-        Cada empresa pode ter suas próprias credenciais para as diferentes redes sociais.
+        Expanda uma plataforma abaixo para ver e gerenciar suas configurações.
+        Cada empresa pode ter suas próprias credenciais para as redes sociais.
       </Alert>
 
       {PLATFORMS.map((platform) => {
