@@ -508,17 +508,30 @@ const startServer = async () => {
     try {
       console.log('Gerando URL simplificada de autenticação YouTube...');
       
+      // Forçar carregamento do .env novamente para garantir que temos os valores mais recentes
+      try {
+        require('dotenv').config();
+        console.log('Variáveis de ambiente recarregadas');
+      } catch (envError) {
+        console.warn('Aviso: Não foi possível recarregar variáveis de ambiente:', envError.message);
+      }
+      
       // Verificar se temos as variáveis necessárias
       const clientId = process.env.YOUTUBE_CLIENT_ID;
-      const redirectUri = process.env.YOUTUBE_REDIRECT_URI || `${process.env.API_BASE_URL}/api/youtube/oauth2callback`;
+      // Usar valor fixo para o redirectUri em vez de interpolação
+      const redirectUri = process.env.YOUTUBE_REDIRECT_URI;
+      
+      console.log('Usando:');
+      console.log('- Client ID:', clientId ? 'Configurado (ocultado)' : 'Não configurado');
+      console.log('- Redirect URI:', redirectUri);
       
       if (!clientId) {
         throw new Error('CLIENT_ID não configurado');
       }
       
-      console.log('Usando:');
-      console.log('- Client ID:', clientId ? 'Configurado (ocultado)' : 'Não configurado');
-      console.log('- Redirect URI:', redirectUri);
+      if (!redirectUri) {
+        throw new Error('REDIRECT_URI não configurado');
+      }
       
       // Escopos que queremos solicitar
       const scopes = [
@@ -536,7 +549,7 @@ const startServer = async () => {
         '&access_type=offline' +
         '&include_granted_scopes=true';
       
-      console.log('URL simplificada gerada com sucesso');
+      console.log('URL simplificada gerada com sucesso:', authUrl);
       
       res.json({
         success: true,
@@ -548,10 +561,12 @@ const startServer = async () => {
         success: false,
         message: 'Erro ao gerar URL simplificada',
         error: error.message,
-        env: {
+        debug: {
           client_id_exists: Boolean(process.env.YOUTUBE_CLIENT_ID),
+          client_id_length: process.env.YOUTUBE_CLIENT_ID ? process.env.YOUTUBE_CLIENT_ID.length : 0,
           redirect_uri: process.env.YOUTUBE_REDIRECT_URI,
-          api_base_url: process.env.API_BASE_URL
+          api_base_url: process.env.API_BASE_URL,
+          node_env: process.env.NODE_ENV
         }
       });
     }
