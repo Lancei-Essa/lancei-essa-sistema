@@ -3,6 +3,12 @@ const fs = require('fs');
 const { promisify } = require('util');
 const readFileAsync = promisify(fs.readFile);
 
+// Verificar se as variáveis de ambiente estão configuradas
+if (!process.env.YOUTUBE_CLIENT_ID || !process.env.YOUTUBE_CLIENT_SECRET || !process.env.YOUTUBE_REDIRECT_URI) {
+  console.error('Erro: Variáveis de ambiente do YouTube não configuradas corretamente.');
+  console.error('Por favor, configure YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET e YOUTUBE_REDIRECT_URI no .env');
+}
+
 // Configuração OAuth
 const oauth2Client = new google.auth.OAuth2(
   process.env.YOUTUBE_CLIENT_ID,
@@ -18,6 +24,11 @@ const youtube = google.youtube({
 
 // Gerar URL de autorização
 const getAuthUrl = () => {
+  // Verificar se as credenciais estão configuradas
+  if (!process.env.YOUTUBE_CLIENT_ID || !process.env.YOUTUBE_CLIENT_SECRET || !process.env.YOUTUBE_REDIRECT_URI) {
+    throw new Error('Credenciais do YouTube não configuradas. Configure YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET e YOUTUBE_REDIRECT_URI.');
+  }
+  
   const scopes = [
     'https://www.googleapis.com/auth/youtube.upload',
     'https://www.googleapis.com/auth/youtube',
