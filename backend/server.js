@@ -516,22 +516,29 @@ const startServer = async () => {
         console.warn('Aviso: Não foi possível recarregar variáveis de ambiente:', envError.message);
       }
       
-      // Verificar se temos as variáveis necessárias
-      const clientId = process.env.YOUTUBE_CLIENT_ID;
-      // Usar valor fixo para o redirectUri em vez de interpolação
-      const redirectUri = process.env.YOUTUBE_REDIRECT_URI;
+      // URGENTE: Implementação de emergência para contornar problemas com variáveis de ambiente
+      console.log('ATENÇÃO: Ativando modo de emergência com valores fixos');
       
-      console.log('Usando:');
-      console.log('- Client ID:', clientId ? 'Configurado (ocultado)' : 'Não configurado');
+      // Valores fixos para desenvolvimento e produção
+      const clientId = '1035705950747-7ufvkq0siigic18aucg1ragkgjgbeel.apps.googleusercontent.com'; // ID fixo para emergência
+      
+      // Determinar URL base de acordo com o ambiente
+      let baseUrl;
+      if (process.env.NODE_ENV === 'production' || process.env.RENDER_EXTERNAL_URL) {
+        baseUrl = process.env.RENDER_EXTERNAL_URL || 'https://lancei-essa-sistema.onrender.com';
+        console.log('Ambiente de produção detectado, usando URL base:', baseUrl);
+      } else {
+        baseUrl = 'http://localhost:5002';
+        console.log('Ambiente de desenvolvimento detectado, usando URL base:', baseUrl);
+      }
+      
+      // Usar um redirect URI fixo baseado no ambiente
+      const redirectUri = `${baseUrl}/api/youtube/oauth2callback`;
+      
+      console.log('Usando valores de emergência:');
+      console.log('- Client ID:', clientId ? 'Configurado (emergência)' : 'Não configurado');
       console.log('- Redirect URI:', redirectUri);
-      
-      if (!clientId) {
-        throw new Error('CLIENT_ID não configurado');
-      }
-      
-      if (!redirectUri) {
-        throw new Error('REDIRECT_URI não configurado');
-      }
+      console.log('- Ambiente:', process.env.NODE_ENV || 'não definido');
       
       // Escopos que queremos solicitar
       const scopes = [
@@ -540,21 +547,33 @@ const startServer = async () => {
         'https://www.googleapis.com/auth/youtube.readonly'
       ];
       
-      // Construir URL manualmente
-      const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + 
-        `client_id=${encodeURIComponent(clientId)}` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-        '&response_type=code' +
-        `&scope=${encodeURIComponent(scopes.join(' '))}` +
-        '&access_type=offline' +
-        '&include_granted_scopes=true';
-      
-      console.log('URL simplificada gerada com sucesso:', authUrl);
-      
-      res.json({
-        success: true,
-        authUrl
-      });
+      try {
+        // Construir URL manualmente
+        const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + 
+          `client_id=${encodeURIComponent(clientId)}` +
+          `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+          '&response_type=code' +
+          `&scope=${encodeURIComponent(scopes.join(' '))}` +
+          '&access_type=offline' +
+          '&include_granted_scopes=true' +
+          '&prompt=consent';  // Forçar tela de consentimento
+        
+        console.log('URL simplificada gerada com sucesso:', authUrl.substring(0, 100) + '...');
+        
+        // Verificar se a URL é válida tentando fazer o parse
+        new URL(authUrl);
+        
+        res.json({
+          success: true,
+          authUrl,
+          source: 'emergency-mode',
+          clientIdLength: clientId.length,
+          redirectUriEncoded: encodeURIComponent(redirectUri)
+        });
+      } catch (urlError) {
+        console.error('Erro ao criar URL válida:', urlError);
+        throw new Error(`URL inválida: ${urlError.message}`);
+      }
     } catch (error) {
       console.error('Erro ao gerar URL simplificada:', error);
       console.error('Stack trace completo:', error.stack);
