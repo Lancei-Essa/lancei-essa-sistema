@@ -117,6 +117,86 @@ const YouTubeConfig = () => {
       '&include_granted_scopes=true';
   };
 
+  // Implementação direta para mostrar o URL no UI para depuração
+  const showUrlForDebugging = () => {
+    try {
+      const emergencyUrl = generateEmergencyAuthUrl();
+      
+      // Criar modal para depuração
+      const debugDiv = document.createElement('div');
+      debugDiv.style.position = 'fixed';
+      debugDiv.style.top = '20px';
+      debugDiv.style.left = '20px';
+      debugDiv.style.right = '20px';
+      debugDiv.style.padding = '20px';
+      debugDiv.style.backgroundColor = 'white';
+      debugDiv.style.border = '2px solid red';
+      debugDiv.style.borderRadius = '5px';
+      debugDiv.style.zIndex = '9999';
+      debugDiv.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
+      debugDiv.style.maxHeight = '80vh';
+      debugDiv.style.overflow = 'auto';
+      
+      const closeBtn = document.createElement('button');
+      closeBtn.innerText = 'Fechar';
+      closeBtn.style.position = 'absolute';
+      closeBtn.style.top = '10px';
+      closeBtn.style.right = '10px';
+      closeBtn.style.padding = '5px 10px';
+      closeBtn.onclick = () => document.body.removeChild(debugDiv);
+      
+      const title = document.createElement('h3');
+      title.innerText = 'Informações de Depuração YouTube OAuth';
+      
+      const urlInfo = document.createElement('div');
+      urlInfo.innerHTML = `
+        <p><strong>URL de Autorização:</strong></p>
+        <textarea style="width:100%; height:80px; font-family:monospace; margin-bottom:10px">${emergencyUrl}</textarea>
+        
+        <p><strong>Informações do ambiente:</strong></p>
+        <pre style="background:#f1f1f1; padding:10px; overflow:auto">
+Hostname: ${window.location.hostname}
+Origin: ${window.location.origin}
+Browser: ${navigator.userAgent}
+Redirect URI: ${emergencyUrl.match(/redirect_uri=([^&]*)/)[1]}
+        </pre>
+        
+        <p style="margin-top:20px"><strong>Instruções:</strong></p>
+        <ol>
+          <li>Copie o URL acima</li>
+          <li>Abra em uma nova aba</li>
+          <li>Autorize o acesso</li>
+          <li>Observe o redirecionamento</li>
+        </ol>
+        
+        <button id="copyUrlBtn" style="margin-top:10px; padding:5px 10px">Copiar URL</button>
+        <button id="openUrlBtn" style="margin-top:10px; margin-left:10px; padding:5px 10px">Abrir URL</button>
+      `;
+      
+      debugDiv.appendChild(closeBtn);
+      debugDiv.appendChild(title);
+      debugDiv.appendChild(urlInfo);
+      
+      document.body.appendChild(debugDiv);
+      
+      // Adicionar comportamento aos botões
+      document.getElementById('copyUrlBtn').onclick = () => {
+        navigator.clipboard.writeText(emergencyUrl);
+        alert('URL copiado para a área de transferência');
+      };
+      
+      document.getElementById('openUrlBtn').onclick = () => {
+        window.open(emergencyUrl, '_blank');
+      };
+      
+      return true;
+    } catch (error) {
+      console.error('Erro ao gerar URL de depuração:', error);
+      alert(`Erro ao gerar URL: ${error.message}`);
+      return false;
+    }
+  };
+
   const handleConnect = async () => {
     try {
       setLoading(true);
@@ -131,13 +211,24 @@ const YouTubeConfig = () => {
       
       console.log('YouTubeConfig: Iniciando conexão com YouTube...');
       
-      // TESTE: Usar diretamente o modo de emergência sem tentar a API para depuração
+      // NOVO: Mostrar primeiro a versão de depuração para o usuário
+      if (showUrlForDebugging()) {
+        // Se o modal de depuração foi aberto com sucesso, não prosseguir com o redirecionamento
+        
+        // Restaurar estado do botão
+        if (connectButton) {
+          connectButton.innerHTML = 'Conectar ao YouTube';
+          connectButton.style.opacity = '1';
+        }
+        
+        setLoading(false);
+        return;
+      }
+      
+      // Se a depuração falhar, continuar com o fluxo normal
       console.log('MODO DE DEPURAÇÃO: Usando diretamente URL de emergência...');
       const emergencyUrl = generateEmergencyAuthUrl();
       console.log('URL de emergência gerada:', emergencyUrl);
-      
-      // Antes de redirecionar, mostra um alert com a URL
-      // alert(`URL de emergência sendo usada: ${emergencyUrl}`);
       
       window.location.href = emergencyUrl;
       return;
