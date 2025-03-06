@@ -231,48 +231,53 @@ Redirect URI: ${emergencyUrl.match(/redirect_uri=([^&]*)/)[1]}
     }
   };
 
-  // Aqui implementamos uma simulação em vez de integração real
+  // A abordagem mais direta e simples possível
   const handleConnect = async () => {
     try {
       setLoading(true);
       setError('');
       
-      // 1. Adicionando feedback visual para o usuário
+      // 1. Mostrar que estamos processando
       const connectButton = document.getElementById('youtube-connect-button');
       if (connectButton) {
-        connectButton.innerHTML = '<span class="loading-spinner"></span> Simulando...';
+        connectButton.innerHTML = '<span class="loading-spinner"></span> Conectando...';
         connectButton.style.opacity = '0.7';
       }
       
-      console.log('YouTubeConfig: MODO DE SIMULAÇÃO ATIVADO');
+      // 2. Registrar as informações essenciais no console
+      console.log('=========== INFORMAÇÕES DE DEPURAÇÃO ===========');
+      console.log('Hostname atual:', window.location.hostname);
+      console.log('URL completo:', window.location.href);
+      console.log('Origin:', window.location.origin);
+      console.log('================================================');
       
-      // Esperar um momento para simular processamento
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // 3. A abordagem mais simples é usar uma URL super básica e direta do Google
+      // Esta URL é o padrão absoluto para OAuth 2.0 com o mínimo de parâmetros
+      const simpleAuthUrl = 'https://accounts.google.com/o/oauth2/v2/auth' +
+        '?client_id=1076058132327-qjgm19utms32ukkqr5d6qsg8uak38om3.apps.googleusercontent.com' +
+        '&redirect_uri=https://lancei-essa-sistema.onrender.com/oauth2callback' +
+        '&response_type=code' +
+        '&scope=https://www.googleapis.com/auth/youtube.readonly';
       
-      // Simular conexão bem-sucedida
-      console.log('Simulando conexão bem-sucedida');
+      console.log('URL de autenticação:', simpleAuthUrl);
       
-      // Atualizar estado para "conectado"
-      setConnected(true);
-      
-      // Simular estatísticas do canal
-      setChannelStats({
-        title: 'Canal Lancei Essa (Simulado)',
-        subscriberCount: 12500,
-        viewCount: 250000,
-        videoCount: 45
-      });
-      
-      // Mostrar mensagem de sucesso
-      setError('');
-      
-      // Restaurar estado do botão
-      if (connectButton) {
-        connectButton.innerHTML = 'Conectar ao YouTube';
-        connectButton.style.opacity = '1';
+      // 4. Como último recurso de depuração, mostrar o erro completo na tela
+      try {
+        // Tentar redirecionar
+        window.location.href = simpleAuthUrl;
+      } catch (redirectError) {
+        // Se falhar, mostrar erro detalhado
+        setError(`Erro de redirecionamento: ${redirectError.toString()}`);
+        console.error('Erro no redirecionamento:', redirectError);
+        
+        // Restaurar botão
+        if (connectButton) {
+          connectButton.innerHTML = 'Conectar ao YouTube';
+          connectButton.style.opacity = '1';
+        }
       }
       
-      setLoading(false);
+      // Não resetamos o loading aqui pois o redirecionamento deve ocorrer
       return;
       
       /* CÓDIGO ORIGINAL COMENTADO PARA DEPURAÇÃO
