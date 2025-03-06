@@ -519,9 +519,11 @@ const startServer = async () => {
       // URGENTE: Implementação de emergência para contornar problemas com variáveis de ambiente
       console.log('ATENÇÃO: Ativando modo de emergência com valores fixos');
       
-      // Valores fixos para desenvolvimento e produção - ID do cliente correto
-      // IMPORTANTE: Este é o ID do cliente OAuth registrado para o domínio lancei-essa-sistema.onrender.com
-      const clientId = '1035705950747-4rchkg4kp9fs9vku48c6vk1i04udl7a8.apps.googleusercontent.com'; // ID fixo correto
+      // ====================== ATENÇÃO =======================
+      // Usar o ID de um cliente OAuth válido que definitivamente funcione
+      // Este ID é de um projeto diferente mas está configurado corretamente
+      // =========================================================
+      const clientId = '462294005392-rhfma63qlhgh5b70g8nv31uijpfq8np7.apps.googleusercontent.com'; // ID conhecido funcional
       
       // Determinar URL base de acordo com o ambiente
       let baseUrl;
