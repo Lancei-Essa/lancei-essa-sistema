@@ -188,39 +188,53 @@ const Settings = () => {
 
   const [connectError, setConnectError] = useState(null);
 
+  // ========= MÉTODO UNIFICADO DE AUTENTICAÇÃO SOCIAL =========
+  // Estado para código de autorização (método desktop)
+  const [authCode, setAuthCode] = useState('');
+  const [showAuthCodeInput, setShowAuthCodeInput] = useState(false);
+  const [processingPlatform, setProcessingPlatform] = useState(null);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  
+  /**
+   * Método unificado para conectar com qualquer plataforma social
+   * Para YouTube, usa o fluxo desktop consistente
+   */
   const handleConnect = async (platform) => {
     try {
       // Limpar erros anteriores
       setConnectError(null);
-      console.log(`Iniciando conexão com ${platform}...`);
+      console.log(`[Connect] Iniciando conexão com ${platform}...`);
+      
+      // Expandir automaticamente a plataforma
+      setExpandedPlatforms(prev => ({
+        ...prev,
+        [platform]: true
+      }));
+      
+      // Marcar a plataforma que está sendo processada
+      setProcessingPlatform(platform);
       
       let authUrl;
+      let desktopFlow = false;
       
       // Obter URL de autenticação específica para a plataforma
       if (platform === 'youtube') {
         try {
-          console.log('Settings: Obtendo URL de autenticação do YouTube...');
+          console.log('[Connect] Obtendo URL de autenticação do YouTube...');
           const response = await getYouTubeAuthUrl();
-          console.log('Settings: Resposta do YouTube:', response);
+          console.log('[Connect] Resposta do YouTube:', response);
           
           if (response && response.success && response.authUrl) {
-            console.log('Settings: URL de autenticação válida:', response.authUrl);
             authUrl = response.authUrl;
+            
+            // Verificar se é fluxo desktop
+            desktopFlow = response.method === 'desktop' || response.flowType === 'code-entry';
           } else {
-            console.error('Settings: Resposta inválida:', response);
-            throw new Error(`URL de autenticação inválida: ${JSON.stringify(response)}`);
+            throw new Error('URL de autenticação inválida');
           }
         } catch (error) {
-          console.error('Settings: Erro ao obter URL de autenticação do YouTube:', error);
-          
-          // Extrair detalhes mais úteis para o erro
-          const errorDetails = error.response?.data?.message || 
-                               error.originalError || 
-                               error.message || 
-                               'Erro desconhecido';
-          console.error('Settings: Detalhes do erro:', errorDetails);
-          
-          throw new Error(`Falha ao obter URL de autenticação: ${errorDetails}`);
+          console.error('[Connect] Erro ao obter URL de autenticação do YouTube:', error);
+          throw error;
         }
       } else if (platform === 'instagram') {
         try {
@@ -229,10 +243,10 @@ const Settings = () => {
           if (response && response.success && response.authUrl) {
             authUrl = response.authUrl;
           } else {
-            throw new Error(`URL de autenticação inválida para Instagram`);
+            throw new Error('URL de autenticação inválida');
           }
         } catch (error) {
-          console.error('Erro ao obter URL de autenticação do Instagram:', error);
+          console.error('[Connect] Erro ao obter URL de autenticação do Instagram:', error);
           throw error;
         }
       } else {
@@ -242,49 +256,94 @@ const Settings = () => {
       }
       
       if (authUrl) {
-        console.log(`Abrindo URL de autenticação: ${authUrl}`);
+        console.log(`[Connect] Abrindo URL de autenticação: ${authUrl}`);
         
-        // Abrir janela de autenticação com configurações mínimas
-        const authWindow = window.open(authUrl, '_blank');
+        // Abrir janela de autenticação
+        const authWindow = window.open(authUrl, `${platform}Auth`, 'width=600,height=600');
         
-        // Verificar se a janela foi bloqueada pelo navegador
+        // Verificar se a janela foi bloqueada
         if (!authWindow || authWindow.closed || typeof authWindow.closed === 'undefined') {
-          setConnectError('Pop-up bloqueado! Por favor, permita pop-ups para este site e tente novamente.');
+          setConnectError('Pop-up bloqueado! Por favor, permita pop-ups para este site.');
           return;
         }
         
-        console.log('Janela de autenticação aberta com sucesso, esperando resposta do OAuth...');
-        
-        // Expandir automaticamente a plataforma
-        setExpandedPlatforms(prev => ({
-          ...prev,
-          [platform]: true
-        }));
-        
-        // Verificar conexão após um tempo para dar chance ao usuário de autorizar
-        setTimeout(() => {
-          refreshConnectionStatus();
-        }, 10000); // 10 segundos
+        // Se for fluxo desktop, mostrar campo para inserir código
+        if (desktopFlow) {
+          setShowAuthCodeInput(true);
+        } else {
+          // Para fluxos normais, verificar conexão após um tempo
+          setTimeout(() => {
+            refreshConnectionStatus();
+          }, 10000); // 10 segundos
+        }
       } else {
         throw new Error('URL de autenticação não disponível');
       }
     } catch (error) {
-      console.error(`Erro ao conectar com ${platform}:`, error);
+      console.error(`[Connect] Erro ao conectar com ${platform}:`, error);
       
-      // Extrair mensagem de erro mais útil
+      // Extrair mensagem de erro
       let errorMessage = error.message || 'Erro desconhecido';
       
       if (error.response) {
         errorMessage = error.response.data?.message || errorMessage;
       }
       
-      setConnectError(`Erro ao iniciar conexão com ${platform}: ${errorMessage}`);
+      if (error.originalError) {
+        errorMessage = error.originalError;
+      }
       
-      // Expandir a plataforma para mostrar o erro
-      setExpandedPlatforms(prev => ({
-        ...prev,
-        [platform]: true
-      }));
+      setConnectError(`Erro ao iniciar conexão com ${platform}: ${errorMessage}`);
+    } finally {
+      // Limpar marcação de processamento se não estiver mostrando entrada de código
+      if (!showAuthCodeInput) {
+        setProcessingPlatform(null);
+      }
+    }
+  };
+  
+  /**
+   * Processa o código de autorização (método desktop)
+   */
+  const handleSubmitAuthCode = async () => {
+    if (!authCode || !processingPlatform) {
+      setConnectError('Por favor, insira o código de autorização');
+      return;
+    }
+    
+    try {
+      setSubmitLoading(true);
+      setConnectError(null);
+      
+      if (processingPlatform === 'youtube') {
+        // Importar o serviço para trocar o código por tokens
+        const { exchangeAuthCode } = require('../services/platforms/youtube');
+        
+        // Enviar o código para o servidor
+        console.log('[Connect] Enviando código de autorização do YouTube:', authCode);
+        const response = await exchangeAuthCode(authCode);
+        
+        if (response.success) {
+          console.log('[Connect] Código processado com sucesso');
+          
+          // Limpar o formulário
+          setShowAuthCodeInput(false);
+          setAuthCode('');
+          setProcessingPlatform(null);
+          
+          // Verificar conexão
+          refreshConnectionStatus();
+        } else {
+          throw new Error(response.message || 'Erro ao processar código');
+        }
+      } else {
+        throw new Error(`Plataforma ${processingPlatform} não suporta troca de código de autorização`);
+      }
+    } catch (error) {
+      console.error('[Connect] Erro ao processar código:', error);
+      setConnectError(`Erro ao processar código: ${error.message || 'Erro desconhecido'}`);
+    } finally {
+      setSubmitLoading(false);
     }
   };
 
@@ -345,6 +404,51 @@ const Settings = () => {
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setConnectError(null)}>
           {connectError}
         </Alert>
+      )}
+      
+      {/* Interface para inserir código de autorização (método desktop) */}
+      {showAuthCodeInput && processingPlatform && (
+        <Paper sx={{ p: 3, mb: 3, bgcolor: 'info.light' }}>
+          <Typography variant="h6" sx={{ color: 'info.contrastText', mb: 1 }}>
+            Autorização de {processingPlatform.charAt(0).toUpperCase() + processingPlatform.slice(1)}
+          </Typography>
+          
+          <Typography variant="body1" sx={{ color: 'info.contrastText', mb: 2 }}>
+            Copie o código de autorização fornecido pelo Google e cole-o abaixo:
+          </Typography>
+          
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <TextField
+              fullWidth
+              label="Código de autorização"
+              value={authCode}
+              onChange={(e) => setAuthCode(e.target.value)}
+              placeholder="Cole o código aqui"
+              variant="outlined"
+              size="medium"
+              sx={{ 
+                bgcolor: 'white',
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 1
+                }
+              }}
+            />
+            
+            <Button
+              variant="contained"
+              color="primary"
+              disabled={submitLoading || !authCode}
+              onClick={handleSubmitAuthCode}
+              sx={{ height: '56px', px: 4 }}
+            >
+              {submitLoading ? <CircularProgress size={24} color="inherit" /> : 'Enviar'}
+            </Button>
+          </Box>
+          
+          <Typography variant="caption" sx={{ color: 'info.contrastText' }}>
+            Após autorizar o acesso no navegador, você verá um código. Copie-o e cole-o acima.
+          </Typography>
+        </Paper>
       )}
 
       {/* Detalhes e configurações por plataforma */}

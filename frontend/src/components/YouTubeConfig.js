@@ -231,112 +231,62 @@ Redirect URI: ${emergencyUrl.match(/redirect_uri=([^&]*)/)[1]}
     }
   };
 
-  // A abordagem mais direta e simples possível
+  // Sistema de autenticação unificado OAuth para YouTube
+  const [authCode, setAuthCode] = useState('');
+  const [showAuthCodeInput, setShowAuthCodeInput] = useState(false);
+  const [submitLoading, setSubmitLoading] = useState(false);
+
+  /**
+   * Método unificado para iniciar o processo de autenticação com YouTube
+   * Este método é consistente em todos os componentes que precisam se conectar ao YouTube
+   */
   const handleConnect = async () => {
     try {
       setLoading(true);
       setError('');
       
-      // 1. Mostrar que estamos processando
+      // Atualizar interface para mostrar o processamento
       const connectButton = document.getElementById('youtube-connect-button');
       if (connectButton) {
         connectButton.innerHTML = '<span class="loading-spinner"></span> Conectando...';
         connectButton.style.opacity = '0.7';
       }
       
-      // 2. Registrar as informações essenciais no console
-      console.log('=========== INFORMAÇÕES DE DEPURAÇÃO ===========');
-      console.log('Hostname atual:', window.location.hostname);
-      console.log('URL completo:', window.location.href);
-      console.log('Origin:', window.location.origin);
-      console.log('================================================');
+      // Obter URL de autenticação do endpoint unificado
+      console.log('[YouTube Connect] Solicitando URL de autenticação...');
+      const response = await getYouTubeAuthUrl();
       
-      // 3. A abordagem mais simples é usar uma URL super básica e direta do Google
-      // Esta URL é o padrão absoluto para OAuth 2.0 com o mínimo de parâmetros
-      const simpleAuthUrl = 'https://accounts.google.com/o/oauth2/v2/auth' +
-        '?client_id=1076058132327-qjgm19utms32ukkqr5d6qsg8uak38om3.apps.googleusercontent.com' +
-        '&redirect_uri=https://lancei-essa-sistema.onrender.com/oauth2callback' +
-        '&response_type=code' +
-        '&scope=https://www.googleapis.com/auth/youtube.readonly';
+      console.log('[YouTube Connect] Resposta recebida:', response);
       
-      console.log('URL de autenticação:', simpleAuthUrl);
-      
-      // 4. Como último recurso de depuração, mostrar o erro completo na tela
-      try {
-        // Tentar redirecionar
-        window.location.href = simpleAuthUrl;
-      } catch (redirectError) {
-        // Se falhar, mostrar erro detalhado
-        setError(`Erro de redirecionamento: ${redirectError.toString()}`);
-        console.error('Erro no redirecionamento:', redirectError);
-        
-        // Restaurar botão
-        if (connectButton) {
-          connectButton.innerHTML = 'Conectar ao YouTube';
-          connectButton.style.opacity = '1';
-        }
-      }
-      
-      // Não resetamos o loading aqui pois o redirecionamento deve ocorrer
-      return;
-      
-      /* CÓDIGO ORIGINAL COMENTADO PARA DEPURAÇÃO
-      try {
-        // 2. Tentar método normal via API
-        console.log('Tentando método normal via API...');
-        const response = await getYouTubeAuthUrl();
-        console.log('YouTubeConfig: Resposta completa:', response);
-        
-        if (response && response.success && response.authUrl) {
-          console.log('YouTubeConfig: Redirecionando para:', response.authUrl);
-          window.location.href = response.authUrl;
-          return;
+      if (response && response.success && response.authUrl) {
+        // Verificar se a autenticação é do tipo desktop (sempre deve ser com nossa implementação unificada)
+        if (response.method === 'desktop' || response.flowType === 'code-entry') {
+          // Abrir nova janela com a URL de autenticação
+          window.open(response.authUrl, 'YouTube Auth', 'width=600,height=600');
+          
+          // Mostrar interface para inserir o código
+          setShowAuthCodeInput(true);
+          
+          // Restaurar botão para estado normal
+          if (connectButton) {
+            connectButton.innerHTML = 'Conectar ao YouTube';
+            connectButton.style.opacity = '1';
+          }
         } else {
-          console.error('YouTubeConfig: Resposta não contém URL válida:', response);
-          throw new Error('Resposta inválida do servidor');
+          // Caso não seja método desktop (não deve acontecer com nossa implementação unificada)
+          console.warn('[YouTube Connect] Método inesperado, redirecionando...');
+          window.location.href = response.authUrl;
         }
-      } catch (apiError) {
-        console.error('Falha ao obter URL via API:', apiError);
-        
-        // 3. Tentar método direto (modo emergência)
-        console.log('Usando método de emergência direto...');
-        const emergencyUrl = generateEmergencyAuthUrl();
-        console.log('URL de emergência gerada:', emergencyUrl);
-        
-        window.location.href = emergencyUrl;
+      } else {
+        throw new Error('Resposta inválida do servidor');
       }
-      */
     } catch (err) {
-      console.error('YouTubeConfig: Erro ao iniciar conexão com YouTube:', err);
+      console.error('[YouTube Connect] Erro ao iniciar conexão:', err);
       
-      // Extrair mensagem de erro mais informativa e detalhada
-      let errorMessage = 'Erro desconhecido';
-      let errorDetails = '';
+      // Mostrar erro para o usuário
+      setError(`Erro de conexão: ${err.message || 'Erro desconhecido'}`);
       
-      if (err.message) {
-        errorMessage = err.message;
-      }
-      
-      if (typeof err === 'string') {
-        errorMessage = err;
-      }
-      
-      if (err.originalError) {
-        errorMessage = err.originalError;
-      }
-      
-      // Extração de detalhes adicionais para depuração
-      if (err.response && err.response.data) {
-        errorDetails = JSON.stringify(err.response.data);
-        console.error('Detalhes do erro da API:', err.response.data);
-      }
-      
-      console.error('YouTubeConfig: Mensagem de erro extraída:', errorMessage);
-      
-      // Mensagem de erro mais detalhada para depuração do problema
-      setError(`Erro de conexão: ${errorMessage}${errorDetails ? ` (Detalhes: ${errorDetails})` : ''}`);
-      
-      // 4. Restaurar estado do botão
+      // Restaurar botão
       const connectButton = document.getElementById('youtube-connect-button');
       if (connectButton) {
         connectButton.innerHTML = 'Conectar ao YouTube';
@@ -344,6 +294,46 @@ Redirect URI: ${emergencyUrl.match(/redirect_uri=([^&]*)/)[1]}
       }
     } finally {
       setLoading(false);
+    }
+  };
+  
+  /**
+   * Processa o código de autorização enviado pelo usuário
+   * Envia para o endpoint unificado no backend
+   */
+  const handleSubmitAuthCode = async () => {
+    if (!authCode) {
+      setError('Por favor, insira o código de autorização');
+      return;
+    }
+    
+    try {
+      setSubmitLoading(true);
+      setError('');
+      
+      // Enviar o código para o servidor
+      console.log('[YouTube Connect] Enviando código para processamento...');
+      const response = await exchangeAuthCode(authCode);
+      
+      if (response.success) {
+        console.log('[YouTube Connect] Código processado com sucesso');
+        
+        // Limpar o formulário
+        setShowAuthCodeInput(false);
+        setAuthCode('');
+        
+        // Verificar conexão 
+        setTimeout(() => {
+          checkConnection();
+        }, 1000);
+      } else {
+        throw new Error(response.message || 'Erro ao processar código');
+      }
+    } catch (err) {
+      console.error('[YouTube Connect] Erro ao processar código:', err);
+      setError(`Erro ao processar código: ${err.message || 'Erro desconhecido'}`);
+    } finally {
+      setSubmitLoading(false);
     }
   };
   
@@ -464,35 +454,70 @@ Redirect URI: ${emergencyUrl.match(/redirect_uri=([^&]*)/)[1]}
             </Button>
           </Box>
         ) : (
-          <Button 
-            id="youtube-connect-button"
-            variant="contained" 
-            color="error" 
-            startIcon={<YouTube />}
-            onClick={handleConnect}
-            size="large"
-            fullWidth
-            sx={{ 
-              py: 1.5,
-              position: 'relative',
-              '& .loading-spinner': {
-                display: 'inline-block',
-                width: '20px',
-                height: '20px',
-                marginRight: '8px',
-                border: '2px solid rgba(255,255,255,0.3)',
-                borderRadius: '50%',
-                borderTop: '2px solid #fff',
-                animation: 'spin 1s linear infinite',
-                '@keyframes spin': {
-                  '0%': { transform: 'rotate(0deg)' },
-                  '100%': { transform: 'rotate(360deg)' }
+          {showAuthCodeInput ? (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                Insira o código de autorização fornecido pelo Google:
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <input
+                  type="text"
+                  value={authCode}
+                  onChange={(e) => setAuthCode(e.target.value)}
+                  placeholder="Cole o código aqui"
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    fontSize: '16px',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px'
+                  }}
+                />
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleSubmitAuthCode}
+                  disabled={submitLoading || !authCode}
+                  sx={{ height: '42px' }}
+                >
+                  {submitLoading ? <span className="loading-spinner"></span> : 'Enviar'}
+                </Button>
+              </Box>
+              <Typography variant="body2" color="text.secondary">
+                Copie o código mostrado na página de autorização do Google e cole-o acima.
+              </Typography>
+            </Box>
+          ) : (
+            <Button 
+              id="youtube-connect-button"
+              variant="contained" 
+              color="error" 
+              startIcon={<YouTube />}
+              onClick={handleConnect}
+              size="large"
+              fullWidth
+              sx={{ 
+                py: 1.5,
+                position: 'relative',
+                '& .loading-spinner': {
+                  display: 'inline-block',
+                  width: '20px',
+                  height: '20px',
+                  marginRight: '8px',
+                  border: '2px solid rgba(255,255,255,0.3)',
+                  borderRadius: '50%',
+                  borderTop: '2px solid #fff',
+                  animation: 'spin 1s linear infinite',
+                  '@keyframes spin': {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' }
+                  }
                 }
-              }
-            }}
-          >
-            Conectar ao YouTube
-          </Button>
+              }}
+            >
+              Conectar ao YouTube
+            </Button>
+          )}
         )}
       </Box>
       

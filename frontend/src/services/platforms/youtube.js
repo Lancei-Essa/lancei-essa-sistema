@@ -15,72 +15,59 @@ export const checkYouTubeConnection = async () => {
 
 /**
  * Inicia processo de autenticação OAuth com YouTube
+ * MÉTODO UNIFICADO - Usa o endpoint comum para todos os componentes
  * @returns {Promise<Object>} URL de redirecionamento para autorização
  */
 export const getYouTubeAuthUrl = async () => {
   try {
-    console.log('[YouTube] Solicitando URL de autenticação (método simplificado)...');
-    console.log('[YouTube] Endpoint:', api.defaults.baseURL + '/youtube/simple-auth-url');
+    console.log('[YouTube] Solicitando URL de autenticação unificada');
     
-    // Usar método simplificado mais confiável
-    const response = await api.get('/youtube/simple-auth-url');
+    // Sempre usar o endpoint unificado
+    const response = await api.get('/youtube/auth-url');
     console.log('[YouTube] Resposta recebida:', response.data);
+    
+    if (!response.data || !response.data.success || !response.data.authUrl) {
+      throw new Error('Resposta inválida do servidor');
+    }
+    
     return response.data;
   } catch (error) {
-    console.error('[YouTube] Erro ao solicitar URL simplificada:', error);
-    console.error('[YouTube] URL que falhou:', api.defaults.baseURL + '/youtube/simple-auth-url');
+    console.error('[YouTube] Erro ao solicitar URL de autenticação:', error);
     
-    // Tentar método de fallback
-    try {
-      console.log('[YouTube] Tentando método padrão como fallback...');
-      const fallbackResponse = await api.get('/youtube/auth-url');
-      console.log('[YouTube] Resposta recebida do fallback:', fallbackResponse.data);
-      return fallbackResponse.data;
-    } catch (fallbackError) {
-      console.error('[YouTube] Ambos os métodos falharam');
-      console.error('[YouTube] Detalhes do erro original:', {
-        message: error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data
-      });
-      
-      // Informação adicional para depuração
-      if (error.response) {
-        console.error('[YouTube] Resposta do servidor:', error.response);
-      } else if (error.request) {
-        console.error('[YouTube] Requisição sem resposta:', error.request);
-      }
-      
-      // Diagnóstico do ambiente
-      try {
-        console.log('[YouTube] Obtendo diagnóstico do ambiente...');
-        const diagnosis = await api.get('/oauth/diagnosis');
-        console.log('[YouTube] Diagnóstico:', diagnosis.data);
-      } catch (diagError) {
-        console.error('[YouTube] Erro ao obter diagnóstico:', diagError);
-      }
-      
-      // Extrair detalhes máximos do erro para enviar para o frontend
-      const errorData = error.response?.data || {};
-      
-      // Construir objeto de erro detalhado para diagnóstico
-      throw {
-        success: false,
-        message: 'Erro ao obter URL de autorização',
-        errorType: 'API_ERROR',
-        apiResponse: errorData,
-        originalError: error.message,
-        errorDetail: errorData.errorDetail || error.message,
-        debug: {
-          ...errorData.debug,
-          status: error.response?.status,
-          statusText: error.response?.statusText,
-          axiosError: error.toString(),
-          timestamp: new Date().toISOString()
-        }
-      };
-    }
+    // Extrair informações do erro para melhor diagnóstico
+    const errorData = error.response?.data || {};
+    
+    throw {
+      success: false,
+      message: 'Erro ao obter URL de autorização',
+      originalError: error.message,
+      apiResponse: errorData
+    };
+  }
+};
+
+/**
+ * Troca um código de autorização por tokens (método desktop/aplicativo nativo)
+ * @param {string} code Código de autorização obtido pelo fluxo de aplicativo desktop
+ * @returns {Promise<Object>} Resposta do servidor
+ */
+export const exchangeAuthCode = async (code) => {
+  try {
+    console.log('[YouTube] Enviando código de autorização para troca de tokens...');
+    const response = await api.post('/youtube/exchange-code', { code });
+    console.log('[YouTube] Resposta de troca de código:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('[YouTube] Erro ao trocar código de autorização:', error);
+    
+    const errorData = error.response?.data || {};
+    throw {
+      success: false,
+      message: 'Erro ao trocar código de autorização',
+      errorType: 'API_ERROR',
+      apiResponse: errorData,
+      originalError: error.message
+    };
   }
 };
 
@@ -169,7 +156,8 @@ const youtubeService = {
   uploadToYouTube,
   scheduleYouTubeVideo,
   getYouTubeVideoInfo,
-  getYouTubeChannelStats
+  getYouTubeChannelStats,
+  exchangeAuthCode
 };
 
 export default youtubeService;
