@@ -434,51 +434,31 @@ const startServer = async () => {
     }
   });
   
-  // Endpoint unificado para autenticação YouTube
+  // Endpoint unificado para autenticação YouTube - MODO DEMO/SIMULAÇÃO
   app.get('/api/youtube/auth-url', auth, (req, res) => {
     try {
-      console.log('[YouTube Auth] Gerando URL de autenticação unificada');
+      console.log('[YouTube Auth] Gerando URL de autenticação SIMULADA');
       
-      // Usando client ID universal da API Google que funciona para aplicativos públicos 
-      // Este é um ID público da Google bem conhecido que funciona para aplicativos desktop
-      const clientId = '292085223830-7pau1pfo0f35um4elm8niqj05dmdvklp.apps.googleusercontent.com';
+      // MODO DEMO: Retornar uma URL falsa para o frontend que quando aberta mostrará instruções
+      // para o usuário sobre como simular a autenticação
+      const simulatedAuthUrl = `${process.env.API_BASE_URL || 'https://lancei-essa-sistema.onrender.com'}/api/youtube/demo-auth`;
       
-      // URI para aplicativos desktop que o Google aceita sem verificação
-      // Usando localhost pois pode funcionar melhor que urn:ietf:wg:oauth:2.0:oob em alguns casos
-      const redirectUri = 'http://localhost';
-      
-      console.log('[YouTube Auth] Usando método para aplicativos nativos/desktop');
-      console.log('[YouTube Auth] Client ID: oficial do Google OAuth 2.0 Playground');
-      console.log('[YouTube Auth] Redirect URI:', redirectUri);
-      
-      // Escopos que queremos solicitar
-      const scopes = [
-        'https://www.googleapis.com/auth/youtube.readonly'
-      ];
-      
-      // Construir URL de autenticação para aplicativos desktop
-      const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + 
-        `client_id=${encodeURIComponent(clientId)}` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-        '&response_type=code' +
-        `&scope=${encodeURIComponent(scopes.join(' '))}` +
-        '&access_type=offline';
-      
-      console.log('[YouTube Auth] URL gerada com sucesso');
+      console.log('[YouTube Auth] MODO DEMO ATIVADO: Nenhuma autenticação real será realizada');
+      console.log('[YouTube Auth] URL de simulação:', simulatedAuthUrl);
       
       res.json({
         success: true,
-        authUrl,
-        method: 'desktop',
+        authUrl: simulatedAuthUrl,
+        method: 'demo',
         flowType: 'code-entry', // Indica que o código de autorização precisará ser colado no app
-        redirectUri
+        simulationMode: true
       });
     } catch (error) {
-      console.error('[YouTube Auth] Erro ao gerar URL de autenticação:', error);
+      console.error('[YouTube Auth] Erro ao gerar URL de simulação:', error);
       
       res.status(500).json({
         success: false,
-        message: 'Erro ao gerar URL de autenticação do YouTube',
+        message: 'Erro ao gerar URL de autenticação simulada',
         error: error.message
       });
     }
@@ -490,6 +470,127 @@ const startServer = async () => {
     // Redirecionar para o endpoint unificado
     req.url = '/api/youtube/auth-url';
     app._router.handle(req, res);
+  });
+  
+  // Página de demonstração para simulação da autenticação OAuth
+  app.get('/api/youtube/demo-auth', (req, res) => {
+    const demoCode = 'DEMO_' + Math.random().toString(36).substring(2, 10).toUpperCase();
+    
+    const demoHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Autenticação YouTube - Modo Demo</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              max-width: 600px;
+              margin: 0 auto;
+              padding: 20px;
+              line-height: 1.6;
+            }
+            .container {
+              border: 1px solid #ccc;
+              border-radius: 5px;
+              padding: 20px;
+              background-color: #f9f9f9;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 20px;
+              color: #cc0000;
+            }
+            .code {
+              font-family: monospace;
+              font-size: 24px;
+              text-align: center;
+              margin: 20px 0;
+              padding: 10px;
+              background-color: #eee;
+              border: 1px dashed #999;
+              border-radius: 4px;
+            }
+            .footer {
+              font-size: 12px;
+              color: #666;
+              text-align: center;
+              margin-top: 30px;
+            }
+            .button {
+              background-color: #cc0000;
+              color: white;
+              border: none;
+              padding: 10px 20px;
+              text-align: center;
+              text-decoration: none;
+              display: inline-block;
+              font-size: 16px;
+              margin: 10px 2px;
+              cursor: pointer;
+              border-radius: 4px;
+            }
+            .copy-button {
+              display: block;
+              margin: 0 auto;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>YouTube API - Modo de Demonstração</h1>
+            </div>
+            
+            <p>
+              Este é o <strong>MODO DE SIMULAÇÃO</strong> para o YouTube. Como não estamos fazendo 
+              uma conexão real com a API do YouTube, use o código abaixo para simular uma autenticação bem-sucedida:
+            </p>
+            
+            <div class="code" id="demo-code">${demoCode}</div>
+            
+            <button class="button copy-button" onclick="copyCode()">Copiar Código</button>
+            
+            <p>
+              <strong>Instruções:</strong>
+            </p>
+            <ol>
+              <li>Copie o código acima (ou clique no botão "Copiar Código")</li>
+              <li>Volte para a aplicação</li>
+              <li>Cole o código no campo indicado</li>
+              <li>Clique em "Enviar" para simular uma conexão bem-sucedida com o YouTube</li>
+            </ol>
+            
+            <p>
+              <em>Nota: Este modo é apenas para demonstração e testes. Nenhuma conexão real com o YouTube será estabelecida.</em>
+            </p>
+            
+            <button class="button" onclick="window.close()">Fechar esta janela</button>
+          </div>
+          
+          <div class="footer">
+            Lancei Essa - Modo de Demonstração
+          </div>
+          
+          <script>
+            function copyCode() {
+              const codeElement = document.getElementById('demo-code');
+              const code = codeElement.innerText;
+              
+              navigator.clipboard.writeText(code)
+                .then(() => {
+                  alert('Código copiado para a área de transferência!');
+                })
+                .catch(err => {
+                  console.error('Erro ao copiar código:', err);
+                  alert('Erro ao copiar o código. Por favor, copie manualmente.');
+                });
+            }
+          </script>
+        </body>
+      </html>
+    `;
+    
+    res.send(demoHtml);
   });
   
   // Redirecionar para autorização do YouTube (redirecionando para endpoint unificado)
@@ -788,7 +889,7 @@ const startServer = async () => {
     }
   });
   
-  // Endpoint para tratar códigos de autorização da abordagem desktop
+  // Endpoint para tratar códigos de autorização - COM SUPORTE À SIMULAÇÃO
   app.post('/api/youtube/exchange-code', auth, async (req, res) => {
     try {
       const { code } = req.body;
@@ -801,41 +902,31 @@ const startServer = async () => {
         });
       }
       
-      console.log(`[YouTube] Trocando código de autorização por tokens para usuário ${userId}`);
+      console.log(`[YouTube Auth] Processando código de autorização para usuário ${userId}: ${code}`);
       
-      // Usar o client id e redirect uri para desktop (mesmos valores do endpoint auth-url)
-      const clientId = '292085223830-7pau1pfo0f35um4elm8niqj05dmdvklp.apps.googleusercontent.com';
-      const redirectUri = 'http://localhost';
+      // Verificar se é um código de demo (começa com DEMO_)
+      const isDemoCode = code.startsWith('DEMO_');
       
-      // Configurar credenciais específicas para o método desktop
-      const desktopCredentials = {
-        client_id: clientId,
-        client_secret: 'desktop-app', // Valor fictício, não usado para aplicativos desktop
-        redirect_uri: redirectUri
-      };
-      
-      // Preparar token de simulação para desenvolvimento
+      // Tokens simulados para o modo de demonstração
       const simulatedTokens = {
-        access_token: 'youtube_' + Math.random().toString(36).substring(2, 15),
-        refresh_token: 'refresh_' + Math.random().toString(36).substring(2, 15),
-        expires_at: new Date(Date.now() + (7 * 24 * 60 * 60 * 1000)), // Expira em 7 dias
-        channel_id: 'UC_desktop_' + Math.random().toString(36).substring(2, 10),
+        access_token: 'youtube_demo_' + Math.random().toString(36).substring(2, 10),
+        refresh_token: 'refresh_demo_' + Math.random().toString(36).substring(2, 10),
+        expires_at: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)), // 30 dias
+        channel_id: 'UC_DEMO_CHANNEL_' + Math.random().toString(36).substring(2, 8).toUpperCase(),
       };
       
-      let tokenData = null;
+      // Para modo de demonstração, sempre usamos tokens simulados
+      let tokenData = simulatedTokens;
       
-      // Tentar obter tokens reais ou usar simulados como fallback
-      try {
-        // Usar serviço real para trocar o código por tokens
-        tokenData = await youtubeService.getTokensFromCode(code, desktopCredentials);
-        console.log('[YouTube] Tokens obtidos com sucesso do Google');
-      } catch (tokenError) {
-        console.error('[YouTube] Erro ao trocar código por tokens:', tokenError);
-        console.log('[YouTube] Usando tokens simulados como fallback');
-        
-        // Usar tokens simulados para desenvolvimento
-        tokenData = simulatedTokens;
-      }
+      // Configurar os dados do canal simulado para demonstração
+      const demoChannelData = {
+        title: 'Canal de Demonstração',
+        customUrl: '@lanceiessa',
+        description: 'Este é um canal simulado para fins de demonstração',
+        subscriberCount: 12500,
+        viewCount: 250000,
+        videoCount: 45
+      };
       
       // Salvar tokens no banco de dados (real ou memória)
       if (!usingMemoryDb) {
@@ -847,21 +938,25 @@ const startServer = async () => {
             { 
               access_token: tokenData.access_token,
               refresh_token: tokenData.refresh_token,
-              expires_at: tokenData.expires_at || new Date(Date.now() + (3600 * 1000)), // 1 hora se não especificado
-              channel_id: tokenData.channel_id || 'UC_desktop_channel',
+              expires_at: tokenData.expires_at,
+              channel_id: tokenData.channel_id,
+              demo_channel_data: demoChannelData, // Dados simulados do canal
               is_valid: true,
+              is_demo: true, // Marcar como demonstração
               last_refreshed: Date.now()
             },
             { new: true, upsert: true }
           );
           
-          console.log('[YouTube] Token salvo no banco de dados:', result._id);
+          console.log('[YouTube Auth] Token simulado salvo no banco de dados:', result._id);
         } catch (dbError) {
-          console.error('[YouTube] Erro ao salvar token no banco:', dbError);
+          console.error('[YouTube Auth] Erro ao salvar token simulado no banco:', dbError);
           
           // Armazenar em memória como fallback
           activeTokens.youtube = {
             ...tokenData,
+            demo_channel_data: demoChannelData,
+            is_demo: true,
             userId,
             created_at: new Date().toISOString()
           };
@@ -870,10 +965,12 @@ const startServer = async () => {
         // Salvar em memória
         activeTokens.youtube = {
           ...tokenData,
+          demo_channel_data: demoChannelData,
+          is_demo: true,
           userId,
           created_at: new Date().toISOString()
         };
-        console.log('[YouTube] Token salvo em memória para o usuário:', userId);
+        console.log('[YouTube Auth] Token simulado salvo em memória para o usuário:', userId);
       }
       
       // Atualizar o status de conexão do usuário
@@ -882,21 +979,23 @@ const startServer = async () => {
           const User = require('./models/User');
           await User.findByIdAndUpdate(userId, {
             'socialConnections.youtube.connected': true,
-            'socialConnections.youtube.lastConnected': Date.now()
+            'socialConnections.youtube.lastConnected': Date.now(),
+            'socialConnections.youtube.isDemo': true // Marcar como demonstração
           });
         } catch (userUpdateError) {
-          console.error('[YouTube] Erro ao atualizar status do usuário:', userUpdateError);
+          console.error('[YouTube Auth] Erro ao atualizar status do usuário:', userUpdateError);
         }
       }
       
       // Responder com sucesso
       res.json({
         success: true,
-        message: 'Token do YouTube obtido e armazenado com sucesso',
-        connected: true
+        message: 'Autenticação simulada com sucesso!',
+        connected: true,
+        demoMode: true
       });
     } catch (error) {
-      console.error('[YouTube] Erro ao processar código de autorização:', error);
+      console.error('[YouTube Auth] Erro ao processar código de autorização:', error);
       res.status(500).json({
         success: false,
         message: 'Erro ao processar código de autorização',
