@@ -221,37 +221,24 @@ const Settings = () => {
         </Box>
       </Box>
 
-      {/* Visão geral dos status de conexão */}
-      <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
-        <Typography variant="subtitle1" gutterBottom fontWeight="medium">
-          Visão Geral das Conexões
-        </Typography>
-        
-        {loadingConnections ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-            <CircularProgress size={30} />
-          </Box>
-        ) : (
-          <Grid container spacing={2}>
-            {PLATFORMS.map((platform) => {
-              const status = connectionStatus[platform.id];
-              
-              return (
-                <Grid item key={platform.id}>
-                  <Chip
-                    icon={platform.icon}
-                    label={platform.name}
-                    variant="outlined"
-                    color={status?.connected ? "success" : "default"}
-                    onClick={() => handlePlatformToggle(platform.id)}
-                    sx={{ px: 1 }}
-                  />
-                </Grid>
-              );
-            })}
-          </Grid>
-        )}
-      </Paper>
+      {/* Grid de plataformas como substituto da visão geral */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        {PLATFORMS.map((platform) => {
+          const status = connectionStatus[platform.id];
+          return (
+            <Grid item key={platform.id} xs={6} sm={4} md={2}>
+              <Chip
+                icon={platform.icon}
+                label={platform.name}
+                variant={status?.connected ? "filled" : "outlined"}
+                color={status?.connected ? "success" : "default"}
+                onClick={() => handlePlatformToggle(platform.id)}
+                sx={{ width: '100%', justifyContent: 'flex-start', py: 1 }}
+              />
+            </Grid>
+          );
+        })}
+      </Grid>
 
       {/* Detalhes e configurações por plataforma */}
       <Alert severity="info" sx={{ mb: 3 }}>
