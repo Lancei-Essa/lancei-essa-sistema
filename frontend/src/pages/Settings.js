@@ -105,6 +105,30 @@ const Settings = () => {
   // Carregar status de conexão ao iniciar
   useEffect(() => {
     refreshConnectionStatus();
+    
+    // Adicionar listener para mensagens de OAuth
+    const handleOAuthMessages = (event) => {
+      // Verificar se a mensagem é do tipo OAuth
+      if (event.data && (event.data.type === 'OAUTH_SUCCESS' || event.data.type === 'OAUTH_ERROR')) {
+        console.log('Recebida mensagem OAuth:', event.data);
+        
+        if (event.data.type === 'OAUTH_SUCCESS') {
+          alert(`Conexão com ${event.data.platform} realizada com sucesso!`);
+          // Atualizar status após conexão bem-sucedida
+          refreshConnectionStatus();
+        } else {
+          alert(`Erro na autenticação com ${event.data.platform}: ${event.data.error || 'Erro desconhecido'}`);
+        }
+      }
+    };
+    
+    // Adicionar o listener
+    window.addEventListener('message', handleOAuthMessages);
+    
+    // Limpar o listener ao desmontar o componente
+    return () => {
+      window.removeEventListener('message', handleOAuthMessages);
+    };
   }, []);
 
   // Verificar status de todas as conexões
@@ -159,15 +183,50 @@ const Settings = () => {
   };
 
   const handleConnect = async (platform) => {
-    // Lógica para iniciar conexão com a plataforma
-    console.log(`Conectando com ${platform}...`);
-    // Em uma implementação real, aqui abriríamos o fluxo OAuth
-    
-    // Expandir automaticamente a plataforma após iniciar conexão
-    setExpandedPlatforms(prev => ({
-      ...prev,
-      [platform]: true
-    }));
+    try {
+      console.log(`Iniciando conexão com ${platform}...`);
+      
+      let authUrl;
+      
+      // Obter URL de autenticação específica para a plataforma
+      if (platform === 'youtube') {
+        const youtubeService = require('../services/platforms/youtube').default;
+        authUrl = await youtubeService.getAuthUrl();
+      } else if (platform === 'instagram') {
+        // Adicionar quando implementado
+        const instagramService = require('../services/platforms/instagram').default;
+        authUrl = await instagramService.getAuthUrl();
+      } else {
+        // Mensagem para plataformas não implementadas
+        alert(`Conexão com ${platform} será implementada em breve.`);
+        return;
+      }
+      
+      if (authUrl) {
+        // Abrir janela de autenticação
+        const authWindow = window.open(authUrl, 'OAuth', 'width=600,height=700');
+        
+        // Verificar se a janela foi bloqueada pelo navegador
+        if (!authWindow || authWindow.closed || typeof authWindow.closed === 'undefined') {
+          alert('Pop-up bloqueado! Por favor, permita pop-ups para este site e tente novamente.');
+          return;
+        }
+        
+        // Expandir automaticamente a plataforma
+        setExpandedPlatforms(prev => ({
+          ...prev,
+          [platform]: true
+        }));
+        
+        // Verificar conexão após um tempo para dar chance ao usuário de autorizar
+        setTimeout(() => {
+          refreshConnectionStatus();
+        }, 10000); // 10 segundos
+      }
+    } catch (error) {
+      console.error(`Erro ao conectar com ${platform}:`, error);
+      alert(`Erro ao iniciar conexão com ${platform}: ${error.message || 'Erro desconhecido'}`);
+    }
   };
 
   const handleSaveSettings = () => {
