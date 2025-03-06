@@ -9,7 +9,16 @@ const unlinkAsync = promisify(fs.unlink);
 // Obter URL de autenticação
 exports.getAuthUrl = (req, res) => {
   try {
+    // Obter informações do usuário, se necessário
+    const userId = req.user ? req.user._id : null;
+    console.log(`Gerando URL de autenticação para usuário: ${userId}`);
+    
+    // Gerar URL de autenticação
     const authUrl = youtubeService.getAuthUrl();
+    
+    console.log(`URL de autenticação gerada: ${authUrl}`);
+    
+    // Retornar a URL gerada
     res.json({ 
       success: true, 
       authUrl 

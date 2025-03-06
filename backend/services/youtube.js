@@ -4,10 +4,17 @@ const { promisify } = require('util');
 const readFileAsync = promisify(fs.readFile);
 
 // Verificar se as variáveis de ambiente estão configuradas
-if (!process.env.YOUTUBE_CLIENT_ID || !process.env.YOUTUBE_CLIENT_SECRET || !process.env.YOUTUBE_REDIRECT_URI) {
-  console.error('Erro: Variáveis de ambiente do YouTube não configuradas corretamente.');
-  console.error('Por favor, configure YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET e YOUTUBE_REDIRECT_URI no .env');
-}
+const checkEnvVariables = () => {
+  if (!process.env.YOUTUBE_CLIENT_ID || !process.env.YOUTUBE_CLIENT_SECRET || !process.env.YOUTUBE_REDIRECT_URI) {
+    console.error('Erro: Variáveis de ambiente do YouTube não configuradas corretamente.');
+    console.error('Por favor, configure YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET e YOUTUBE_REDIRECT_URI no .env');
+    return false;
+  }
+  return true;
+};
+
+// Verificamos no início
+const envVariablesConfigured = checkEnvVariables();
 
 // Configuração OAuth
 const oauth2Client = new google.auth.OAuth2(
@@ -25,21 +32,26 @@ const youtube = google.youtube({
 // Gerar URL de autorização
 const getAuthUrl = () => {
   // Verificar se as credenciais estão configuradas
-  if (!process.env.YOUTUBE_CLIENT_ID || !process.env.YOUTUBE_CLIENT_SECRET || !process.env.YOUTUBE_REDIRECT_URI) {
+  if (!envVariablesConfigured) {
     throw new Error('Credenciais do YouTube não configuradas. Configure YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET e YOUTUBE_REDIRECT_URI.');
   }
   
-  const scopes = [
-    'https://www.googleapis.com/auth/youtube.upload',
-    'https://www.googleapis.com/auth/youtube',
-    'https://www.googleapis.com/auth/youtube.readonly'
-  ];
+  try {
+    const scopes = [
+      'https://www.googleapis.com/auth/youtube.upload',
+      'https://www.googleapis.com/auth/youtube',
+      'https://www.googleapis.com/auth/youtube.readonly'
+    ];
 
-  return oauth2Client.generateAuthUrl({
-    access_type: 'offline',
-    scope: scopes,
-    include_granted_scopes: true
-  });
+    return oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: scopes,
+      include_granted_scopes: true
+    });
+  } catch (error) {
+    console.error('Erro ao gerar URL de autenticação:', error);
+    throw new Error(`Erro ao gerar URL de autenticação: ${error.message}`);
+  }
 };
 
 // Obter tokens a partir do código de autorização
