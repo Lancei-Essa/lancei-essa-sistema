@@ -63,22 +63,71 @@ const YouTubeConfig = () => {
     }
   };
   
+  // Para o modo de emergência (quando o backend está tendo problemas)
+  const generateEmergencyAuthUrl = () => {
+    // Use as credenciais do Google para o projeto Lancei Essa
+    const clientId = '1035705950747-7ufvkq0siigic18aucg1ragkgjgbeel.apps.googleusercontent.com';
+    
+    // Detecte o ambiente e ajuste a URL de redirecionamento
+    let baseUrl = window.location.origin; // Ex: https://lancei-essa-frontend.onrender.com
+    const redirectUri = `${baseUrl}/api/youtube/oauth2callback`;
+    
+    console.log('Usando URL de redirecionamento emergencial:', redirectUri);
+    
+    // Escopos do YouTube
+    const scopes = [
+      'https://www.googleapis.com/auth/youtube.upload',
+      'https://www.googleapis.com/auth/youtube',
+      'https://www.googleapis.com/auth/youtube.readonly'
+    ];
+    
+    // Construir URL
+    return 'https://accounts.google.com/o/oauth2/v2/auth?' + 
+      `client_id=${encodeURIComponent(clientId)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      '&response_type=code' +
+      `&scope=${encodeURIComponent(scopes.join(' '))}` +
+      '&access_type=offline' +
+      '&include_granted_scopes=true';
+  };
+
   const handleConnect = async () => {
     try {
       setLoading(true);
       setError('');
+      
+      // 1. Adicionando feedback visual para o usuário
+      const connectButton = document.getElementById('youtube-connect-button');
+      if (connectButton) {
+        connectButton.innerHTML = '<span class="loading-spinner"></span> Conectando...';
+        connectButton.style.opacity = '0.7';
+      }
+      
       console.log('YouTubeConfig: Iniciando conexão com YouTube...');
       
-      // Usar o serviço para obter a URL de autenticação
-      const response = await getYouTubeAuthUrl();
-      console.log('YouTubeConfig: Resposta completa:', response);
-      
-      if (response && response.success && response.authUrl) {
-        console.log('YouTubeConfig: Redirecionando para:', response.authUrl);
-        window.location.href = response.authUrl;
-      } else {
-        console.error('YouTubeConfig: Resposta não contém URL válida:', response);
-        setError('Erro ao gerar URL de autenticação: resposta inválida do servidor');
+      try {
+        // 2. Tentar método normal via API
+        console.log('Tentando método normal via API...');
+        const response = await getYouTubeAuthUrl();
+        console.log('YouTubeConfig: Resposta completa:', response);
+        
+        if (response && response.success && response.authUrl) {
+          console.log('YouTubeConfig: Redirecionando para:', response.authUrl);
+          window.location.href = response.authUrl;
+          return;
+        } else {
+          console.error('YouTubeConfig: Resposta não contém URL válida:', response);
+          throw new Error('Resposta inválida do servidor');
+        }
+      } catch (apiError) {
+        console.error('Falha ao obter URL via API:', apiError);
+        
+        // 3. Tentar método direto (modo emergência)
+        console.log('Usando método de emergência direto...');
+        const emergencyUrl = generateEmergencyAuthUrl();
+        console.log('URL de emergência gerada:', emergencyUrl);
+        
+        window.location.href = emergencyUrl;
       }
     } catch (err) {
       console.error('YouTubeConfig: Erro ao iniciar conexão com YouTube:', err);
@@ -96,6 +145,13 @@ const YouTubeConfig = () => {
       
       console.error('YouTubeConfig: Mensagem de erro extraída:', errorMessage);
       setError(`Erro ao iniciar conexão com YouTube: ${errorMessage}`);
+      
+      // 4. Restaurar estado do botão
+      const connectButton = document.getElementById('youtube-connect-button');
+      if (connectButton) {
+        connectButton.innerHTML = 'Conectar ao YouTube';
+        connectButton.style.opacity = '1';
+      }
     } finally {
       setLoading(false);
     }
@@ -219,13 +275,31 @@ const YouTubeConfig = () => {
           </Box>
         ) : (
           <Button 
+            id="youtube-connect-button"
             variant="contained" 
             color="error" 
             startIcon={<YouTube />}
             onClick={handleConnect}
             size="large"
             fullWidth
-            sx={{ py: 1.5 }}
+            sx={{ 
+              py: 1.5,
+              position: 'relative',
+              '& .loading-spinner': {
+                display: 'inline-block',
+                width: '20px',
+                height: '20px',
+                marginRight: '8px',
+                border: '2px solid rgba(255,255,255,0.3)',
+                borderRadius: '50%',
+                borderTop: '2px solid #fff',
+                animation: 'spin 1s linear infinite',
+                '@keyframes spin': {
+                  '0%': { transform: 'rotate(0deg)' },
+                  '100%': { transform: 'rotate(360deg)' }
+                }
+              }
+            }}
           >
             Conectar ao YouTube
           </Button>
