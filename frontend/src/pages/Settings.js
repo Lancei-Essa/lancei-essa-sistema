@@ -244,14 +244,16 @@ const Settings = () => {
       if (authUrl) {
         console.log(`Abrindo URL de autenticação: ${authUrl}`);
         
-        // Abrir janela de autenticação
-        const authWindow = window.open(authUrl, 'OAuth', 'width=600,height=700');
+        // Abrir janela de autenticação com configurações mínimas
+        const authWindow = window.open(authUrl, '_blank');
         
         // Verificar se a janela foi bloqueada pelo navegador
         if (!authWindow || authWindow.closed || typeof authWindow.closed === 'undefined') {
           setConnectError('Pop-up bloqueado! Por favor, permita pop-ups para este site e tente novamente.');
           return;
         }
+        
+        console.log('Janela de autenticação aberta com sucesso, esperando resposta do OAuth...');
         
         // Expandir automaticamente a plataforma
         setExpandedPlatforms(prev => ({
