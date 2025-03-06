@@ -19,34 +19,54 @@ export const checkYouTubeConnection = async () => {
  */
 export const getYouTubeAuthUrl = async () => {
   try {
-    console.log('[YouTube] Solicitando URL de autenticação...');
-    console.log('[YouTube] Endpoint:', api.defaults.baseURL + '/youtube/auth-url');
+    console.log('[YouTube] Solicitando URL de autenticação (método simplificado)...');
+    console.log('[YouTube] Endpoint:', api.defaults.baseURL + '/youtube/simple-auth-url');
     
-    const response = await api.get('/youtube/auth-url');
+    // Usar método simplificado mais confiável
+    const response = await api.get('/youtube/simple-auth-url');
     console.log('[YouTube] Resposta recebida:', response.data);
     return response.data;
   } catch (error) {
-    console.error('[YouTube] Erro completo:', error);
-    console.error('[YouTube] URL que falhou:', api.defaults.baseURL + '/youtube/auth-url');
-    console.error('[YouTube] Detalhes do erro:', {
-      message: error.message,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data
-    });
+    console.error('[YouTube] Erro ao solicitar URL simplificada:', error);
+    console.error('[YouTube] URL que falhou:', api.defaults.baseURL + '/youtube/simple-auth-url');
     
-    // Informação adicional para depuração
-    if (error.response) {
-      console.error('[YouTube] Resposta do servidor:', error.response);
-    } else if (error.request) {
-      console.error('[YouTube] Requisição sem resposta:', error.request);
+    // Tentar método de fallback
+    try {
+      console.log('[YouTube] Tentando método padrão como fallback...');
+      const fallbackResponse = await api.get('/youtube/auth-url');
+      console.log('[YouTube] Resposta recebida do fallback:', fallbackResponse.data);
+      return fallbackResponse.data;
+    } catch (fallbackError) {
+      console.error('[YouTube] Ambos os métodos falharam');
+      console.error('[YouTube] Detalhes do erro original:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+      
+      // Informação adicional para depuração
+      if (error.response) {
+        console.error('[YouTube] Resposta do servidor:', error.response);
+      } else if (error.request) {
+        console.error('[YouTube] Requisição sem resposta:', error.request);
+      }
+      
+      // Diagnóstico do ambiente
+      try {
+        console.log('[YouTube] Obtendo diagnóstico do ambiente...');
+        const diagnosis = await api.get('/oauth/diagnosis');
+        console.log('[YouTube] Diagnóstico:', diagnosis.data);
+      } catch (diagError) {
+        console.error('[YouTube] Erro ao obter diagnóstico:', diagError);
+      }
+      
+      throw error.response?.data || { 
+        success: false, 
+        message: 'Erro ao obter URL de autorização (métodos padrão e simplificado falharam)',
+        originalError: error.message 
+      };
     }
-    
-    throw error.response?.data || { 
-      success: false, 
-      message: 'Erro ao obter URL de autorização',
-      originalError: error.message 
-    };
   }
 };
 

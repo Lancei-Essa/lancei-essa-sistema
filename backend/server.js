@@ -418,22 +418,162 @@ const startServer = async () => {
   // YouTube Routes
   const youtubeService = require('./services/youtube');
   
-  // Obter URL de autenticação
+  // Rota de diagnóstico de configuração OAuth
+  app.get('/api/oauth/diagnosis', auth, (req, res) => {
+    try {
+      const diagnosis = {
+        environment: process.env.NODE_ENV,
+        api_base_url: process.env.API_BASE_URL,
+        port: process.env.PORT,
+        youtube: {
+          client_id_configured: Boolean(process.env.YOUTUBE_CLIENT_ID),
+          client_secret_configured: Boolean(process.env.YOUTUBE_CLIENT_SECRET),
+          redirect_uri: process.env.YOUTUBE_REDIRECT_URI,
+          api_key_configured: Boolean(process.env.YOUTUBE_API_KEY)
+        },
+        other_platforms: {
+          instagram_configured: Boolean(process.env.INSTAGRAM_CLIENT_ID && process.env.INSTAGRAM_CLIENT_SECRET),
+          twitter_configured: Boolean(process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET),
+          linkedin_configured: Boolean(process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET),
+          tiktok_configured: Boolean(process.env.TIKTOK_CLIENT_KEY && process.env.TIKTOK_CLIENT_SECRET),
+          spotify_configured: Boolean(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET)
+        },
+        timestamp: new Date().toISOString()
+      };
+      
+      res.json({
+        success: true,
+        diagnosis
+      });
+    } catch (error) {
+      console.error('Erro ao gerar diagnóstico OAuth:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erro ao gerar diagnóstico',
+        error: error.message
+      });
+    }
+  });
+  
+  // Obter URL de autenticação via serviço padrão
   app.get('/api/youtube/auth-url', auth, (req, res) => {
     try {
       const userId = req.user._id;
-      const authUrl = youtubeService.getAuthUrl(userId);
+      
+      // Tentar usar o serviço normal
+      try {
+        const authUrl = youtubeService.getAuthUrl(null);
+        
+        res.json({
+          success: true,
+          authUrl,
+          method: 'standard'
+        });
+      } catch (serviceError) {
+        console.error('Erro ao usar serviço padrão:', serviceError);
+        throw serviceError; // Propagar para ser tratado pelo fallback
+      }
+    } catch (error) {
+      console.error('Erro ao gerar URL de autenticação:', error);
+      
+      // Tentar método alternativo (fallback)
+      try {
+        console.log('Tentando método alternativo para gerar URL OAuth...');
+        
+        // Verificar se temos as variáveis necessárias
+        const clientId = process.env.YOUTUBE_CLIENT_ID;
+        const redirectUri = process.env.YOUTUBE_REDIRECT_URI || `${process.env.API_BASE_URL}/api/youtube/oauth2callback`;
+        
+        if (!clientId) {
+          throw new Error('CLIENT_ID não configurado');
+        }
+        
+        // Escopos que queremos solicitar
+        const scopes = [
+          'https://www.googleapis.com/auth/youtube.upload',
+          'https://www.googleapis.com/auth/youtube',
+          'https://www.googleapis.com/auth/youtube.readonly'
+        ];
+        
+        // Construir URL manualmente
+        const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + 
+          `client_id=${encodeURIComponent(clientId)}` +
+          `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+          '&response_type=code' +
+          `&scope=${encodeURIComponent(scopes.join(' '))}` +
+          '&access_type=offline' +
+          '&include_granted_scopes=true';
+        
+        console.log('URL alternativa gerada:', authUrl);
+        
+        return res.json({
+          success: true,
+          authUrl,
+          method: 'fallback'
+        });
+      } catch (fallbackError) {
+        console.error('Falha também no método alternativo:', fallbackError);
+        
+        return res.status(500).json({
+          success: false, 
+          message: 'Erro ao gerar URL de autenticação (ambos os métodos falharam)', 
+          originalError: error.message,
+          fallbackError: fallbackError.message
+        });
+      }
+    }
+  });
+  
+  // Rota de URL alternativa simplificada para YouTube OAuth
+  app.get('/api/youtube/simple-auth-url', auth, (req, res) => {
+    try {
+      console.log('Gerando URL simplificada de autenticação YouTube...');
+      
+      // Verificar se temos as variáveis necessárias
+      const clientId = process.env.YOUTUBE_CLIENT_ID;
+      const redirectUri = process.env.YOUTUBE_REDIRECT_URI || `${process.env.API_BASE_URL}/api/youtube/oauth2callback`;
+      
+      if (!clientId) {
+        throw new Error('CLIENT_ID não configurado');
+      }
+      
+      console.log('Usando:');
+      console.log('- Client ID:', clientId ? 'Configurado (ocultado)' : 'Não configurado');
+      console.log('- Redirect URI:', redirectUri);
+      
+      // Escopos que queremos solicitar
+      const scopes = [
+        'https://www.googleapis.com/auth/youtube.upload',
+        'https://www.googleapis.com/auth/youtube',
+        'https://www.googleapis.com/auth/youtube.readonly'
+      ];
+      
+      // Construir URL manualmente
+      const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + 
+        `client_id=${encodeURIComponent(clientId)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        '&response_type=code' +
+        `&scope=${encodeURIComponent(scopes.join(' '))}` +
+        '&access_type=offline' +
+        '&include_granted_scopes=true';
+      
+      console.log('URL simplificada gerada com sucesso');
       
       res.json({
         success: true,
         authUrl
       });
     } catch (error) {
-      console.error('Erro ao gerar URL de autenticação:', error);
+      console.error('Erro ao gerar URL simplificada:', error);
       res.status(500).json({
         success: false,
-        message: 'Erro ao gerar URL de autenticação',
-        error: error.message
+        message: 'Erro ao gerar URL simplificada',
+        error: error.message,
+        env: {
+          client_id_exists: Boolean(process.env.YOUTUBE_CLIENT_ID),
+          redirect_uri: process.env.YOUTUBE_REDIRECT_URI,
+          api_base_url: process.env.API_BASE_URL
+        }
       });
     }
   });
@@ -559,7 +699,16 @@ const startServer = async () => {
             body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
             .success { color: green; font-size: 18px; }
             .info { margin: 20px 0; }
-            button { padding: 10px 15px; background: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer; }
+            .button-container { margin-top: 20px; }
+            button { 
+              padding: 10px 15px; 
+              margin: 0 5px;
+              background: #4285f4; 
+              color: white; 
+              border: none; 
+              border-radius: 4px; 
+              cursor: pointer; 
+            }
           </style>
           <script>
             // Script para comunicar com a janela principal
@@ -567,6 +716,10 @@ const startServer = async () => {
               if (window.opener) {
                 // Enviar mensagem para a janela principal que abriu esta
                 window.opener.postMessage({ type: 'OAUTH_SUCCESS', platform: 'youtube' }, '*');
+                // Dar tempo para a mensagem ser recebida
+                setTimeout(function() {
+                  window.close();
+                }, 1000);
               }
             }
           </script>
@@ -575,8 +728,16 @@ const startServer = async () => {
           <h1>Autorização Concluída!</h1>
           <p class="success">✓ Seu canal do YouTube foi conectado com sucesso</p>
           <p class="info">O código de autorização foi processado e sua conta está agora vinculada ao sistema.</p>
-          <p>Você pode fechar esta janela e voltar para o aplicativo.</p>
-          <button onclick="window.close()">Fechar Janela</button>
+          
+          <div class="button-container">
+            <button onclick="window.close()">Fechar Janela</button>
+            <button onclick="window.location.href='/settings'">Voltar às Configurações</button>
+            <button onclick="window.location.href='/'"">Ir para a Dashboard</button>
+          </div>
+          
+          <p style="margin-top: 30px; color: #666; font-size: 0.9em;">
+            A janela será fechada automaticamente em alguns segundos...
+          </p>
         </body>
         </html>
       `);
