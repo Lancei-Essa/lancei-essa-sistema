@@ -68,11 +68,37 @@ const YouTubeConfig = () => {
     // Use as credenciais do Google para o projeto Lancei Essa
     const clientId = '1035705950747-7ufvkq0siigic18aucg1ragkgjgbeel.apps.googleusercontent.com';
     
-    // Detecte o ambiente e ajuste a URL de redirecionamento
-    let baseUrl = window.location.origin; // Ex: https://lancei-essa-frontend.onrender.com
+    // Detectar o ambiente atual (local, render, etc.)
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1';
+    
+    // Verificar se estamos em ambiente de produção (Render)
+    const isRenderEnv = window.location.hostname.includes('onrender.com');
+    
+    // Construir o URL base baseado no ambiente atual
+    let baseUrl;
+    if (isLocalhost) {
+      // Em localhost, apontamos para o servidor backend local
+      baseUrl = 'http://localhost:5002';
+    } else if (isRenderEnv) {
+      // Em produção no Render, apontamos para a API hospedada
+      baseUrl = 'https://lancei-essa-sistema.onrender.com';
+    } else {
+      // Fallback para outras situações - usar origem atual
+      baseUrl = 'https://lancei-essa-sistema.onrender.com';
+    }
+    
+    // URL de redirecionamento específica para cada ambiente
     const redirectUri = `${baseUrl}/api/youtube/oauth2callback`;
     
-    console.log('Usando URL de redirecionamento emergencial:', redirectUri);
+    console.log('Detectado ambiente:', {
+      isLocalhost,
+      isRenderEnv,
+      hostname: window.location.hostname,
+      origin: window.location.origin,
+      baseUrl,
+      redirectUri
+    });
     
     // Escopos do YouTube
     const scopes = [
@@ -105,6 +131,18 @@ const YouTubeConfig = () => {
       
       console.log('YouTubeConfig: Iniciando conexão com YouTube...');
       
+      // TESTE: Usar diretamente o modo de emergência sem tentar a API para depuração
+      console.log('MODO DE DEPURAÇÃO: Usando diretamente URL de emergência...');
+      const emergencyUrl = generateEmergencyAuthUrl();
+      console.log('URL de emergência gerada:', emergencyUrl);
+      
+      // Antes de redirecionar, mostra um alert com a URL
+      // alert(`URL de emergência sendo usada: ${emergencyUrl}`);
+      
+      window.location.href = emergencyUrl;
+      return;
+      
+      /* CÓDIGO ORIGINAL COMENTADO PARA DEPURAÇÃO
       try {
         // 2. Tentar método normal via API
         console.log('Tentando método normal via API...');
@@ -129,22 +167,36 @@ const YouTubeConfig = () => {
         
         window.location.href = emergencyUrl;
       }
+      */
     } catch (err) {
       console.error('YouTubeConfig: Erro ao iniciar conexão com YouTube:', err);
       
-      // Extrair mensagem de erro mais informativa
+      // Extrair mensagem de erro mais informativa e detalhada
       let errorMessage = 'Erro desconhecido';
+      let errorDetails = '';
       
       if (err.message) {
         errorMessage = err.message;
-      } else if (typeof err === 'string') {
+      }
+      
+      if (typeof err === 'string') {
         errorMessage = err;
-      } else if (err.originalError) {
+      }
+      
+      if (err.originalError) {
         errorMessage = err.originalError;
       }
       
+      // Extração de detalhes adicionais para depuração
+      if (err.response && err.response.data) {
+        errorDetails = JSON.stringify(err.response.data);
+        console.error('Detalhes do erro da API:', err.response.data);
+      }
+      
       console.error('YouTubeConfig: Mensagem de erro extraída:', errorMessage);
-      setError(`Erro ao iniciar conexão com YouTube: ${errorMessage}`);
+      
+      // Mensagem de erro mais detalhada para depuração do problema
+      setError(`Erro de conexão: ${errorMessage}${errorDetails ? ` (Detalhes: ${errorDetails})` : ''}`);
       
       // 4. Restaurar estado do botão
       const connectButton = document.getElementById('youtube-connect-button');
