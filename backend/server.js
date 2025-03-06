@@ -20,6 +20,19 @@ const tokenRefresher = require('./utils/tokenManager/tokenRefresher');
 // Configuração
 dotenv.config();
 const app = express();
+
+// Definir API_BASE_URL padrão se não estiver configurada
+if (!process.env.API_BASE_URL) {
+  const port = process.env.PORT || 5002;
+  process.env.API_BASE_URL = `http://localhost:${port}`;
+  console.log(`⚠️ API_BASE_URL não configurada, usando valor padrão: ${process.env.API_BASE_URL}`);
+} else {
+  console.log(`✅ API_BASE_URL configurada: ${process.env.API_BASE_URL}`);
+}
+
+// Log de URLs de redirecionamento para depuração
+console.log('📊 YouTube redirect URI:', process.env.YOUTUBE_REDIRECT_URI);
+console.log('📊 Usando URL base para callbacks OAuth:', process.env.API_BASE_URL);
 app.use(cors());
 app.use(express.json());
 
@@ -422,6 +435,10 @@ const startServer = async () => {
   
   // Armazenamento temporário para uso em desenvolvimento
   const activeTokens = {};
+  
+  // Log das rotas OAuth para depuração
+  console.log('🔐 Rotas OAuth configuradas:');
+  console.log('YouTube:', `/api/youtube/oauth2callback → ${process.env.YOUTUBE_REDIRECT_URI}`);
   
   // Callback de autorização
   app.get('/api/youtube/oauth2callback', async (req, res) => {

@@ -182,8 +182,12 @@ const Settings = () => {
     }));
   };
 
+  const [connectError, setConnectError] = useState(null);
+
   const handleConnect = async (platform) => {
     try {
+      // Limpar erros anteriores
+      setConnectError(null);
       console.log(`Iniciando conexão com ${platform}...`);
       
       let authUrl;
@@ -191,24 +195,39 @@ const Settings = () => {
       // Obter URL de autenticação específica para a plataforma
       if (platform === 'youtube') {
         const youtubeService = require('../services/platforms/youtube').default;
-        authUrl = await youtubeService.getAuthUrl();
+        const response = await youtubeService.getAuthUrl();
+        console.log('Resposta completa:', response);
+        
+        if (response && response.success && response.authUrl) {
+          authUrl = response.authUrl;
+        } else {
+          throw new Error(`URL de autenticação inválida: ${JSON.stringify(response)}`);
+        }
       } else if (platform === 'instagram') {
         // Adicionar quando implementado
         const instagramService = require('../services/platforms/instagram').default;
-        authUrl = await instagramService.getAuthUrl();
+        const response = await instagramService.getAuthUrl();
+        
+        if (response && response.success && response.authUrl) {
+          authUrl = response.authUrl;
+        } else {
+          throw new Error(`URL de autenticação inválida para Instagram`);
+        }
       } else {
         // Mensagem para plataformas não implementadas
-        alert(`Conexão com ${platform} será implementada em breve.`);
+        setConnectError(`Conexão com ${platform} será implementada em breve.`);
         return;
       }
       
       if (authUrl) {
+        console.log(`Abrindo URL de autenticação: ${authUrl}`);
+        
         // Abrir janela de autenticação
         const authWindow = window.open(authUrl, 'OAuth', 'width=600,height=700');
         
         // Verificar se a janela foi bloqueada pelo navegador
         if (!authWindow || authWindow.closed || typeof authWindow.closed === 'undefined') {
-          alert('Pop-up bloqueado! Por favor, permita pop-ups para este site e tente novamente.');
+          setConnectError('Pop-up bloqueado! Por favor, permita pop-ups para este site e tente novamente.');
           return;
         }
         
@@ -222,10 +241,26 @@ const Settings = () => {
         setTimeout(() => {
           refreshConnectionStatus();
         }, 10000); // 10 segundos
+      } else {
+        throw new Error('URL de autenticação não disponível');
       }
     } catch (error) {
       console.error(`Erro ao conectar com ${platform}:`, error);
-      alert(`Erro ao iniciar conexão com ${platform}: ${error.message || 'Erro desconhecido'}`);
+      
+      // Extrair mensagem de erro mais útil
+      let errorMessage = error.message || 'Erro desconhecido';
+      
+      if (error.response) {
+        errorMessage = error.response.data?.message || errorMessage;
+      }
+      
+      setConnectError(`Erro ao iniciar conexão com ${platform}: ${errorMessage}`);
+      
+      // Expandir a plataforma para mostrar o erro
+      setExpandedPlatforms(prev => ({
+        ...prev,
+        [platform]: true
+      }));
     }
   };
 
@@ -280,6 +315,13 @@ const Settings = () => {
         </Box>
       </Box>
 
+
+      {/* Mensagem de erro, se houver */}
+      {connectError && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setConnectError(null)}>
+          {connectError}
+        </Alert>
+      )}
 
       {/* Detalhes e configurações por plataforma */}
       <Alert severity="info" sx={{ mb: 3 }}>

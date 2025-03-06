@@ -19,9 +19,18 @@ export const checkYouTubeConnection = async () => {
  */
 export const getYouTubeAuthUrl = async () => {
   try {
+    console.log('Solicitando URL de autenticação do YouTube...');
     const response = await api.get('/youtube/auth-url');
+    console.log('Resposta recebida:', response.data);
     return response.data;
   } catch (error) {
+    console.error('Erro completo:', error);
+    console.error('Detalhes do erro:', {
+      message: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data
+    });
     throw error.response?.data || { success: false, message: 'Erro ao obter URL de autorização' };
   }
 };
