@@ -5,12 +5,12 @@ const mockCheckConnections = async () => {
   await new Promise(resolve => setTimeout(resolve, 1000));
   
   return {
-    youtube: { connected: true, lastCheck: new Date(), tokenExpiresIn: 30 },
-    instagram: { connected: true, lastCheck: new Date(), tokenExpiresIn: 60 },
-    twitter: { connected: false, lastCheck: new Date(), error: 'Token expirado' },
-    linkedin: { connected: true, lastCheck: new Date(), tokenExpiresIn: 5 },
-    spotify: { connected: true, lastCheck: new Date(), tokenExpiresIn: 45 },
-    tiktok: { connected: false, lastCheck: new Date(), error: 'Conexão não implementada' }
+    youtube: { connected: false, lastCheck: new Date(), error: 'Não conectado' },
+    instagram: { connected: false, lastCheck: new Date(), error: 'Não conectado' },
+    twitter: { connected: false, lastCheck: new Date(), error: 'Não conectado' },
+    linkedin: { connected: false, lastCheck: new Date(), error: 'Não conectado' },
+    spotify: { connected: false, lastCheck: new Date(), error: 'Não conectado' },
+    tiktok: { connected: false, lastCheck: new Date(), error: 'Não conectado' }
   };
 };
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Paper, Typography, Grid, Card, CardContent, 
   Box, CircularProgress, Button, Tooltip, Chip,
-  AppBar, Toolbar, IconButton
+  AppBar, Toolbar, IconButton, Alert
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
@@ -16,7 +16,7 @@ import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import { useNavigate } from 'react-router-dom';
 
-// Serviços a serem implementados
+// Serviços de conexão com as redes sociais
 import { checkAllConnections } from '../../services/monitoring/connectionMonitor';
 
 const PLATFORMS = [
@@ -52,24 +52,14 @@ const PLATFORMS = [
   }
 ];
 
-// Simulação da verificação de conexões - substituir por chamadas API reais
-const mockCheckConnections = async () => {
-  // Simular tempo de resposta da API
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  
-  return {
-    youtube: { connected: true, lastCheck: new Date(), tokenExpiresIn: 30 },
-    instagram: { connected: true, lastCheck: new Date(), tokenExpiresIn: 60 },
-    twitter: { connected: false, lastCheck: new Date(), error: 'Token expirado' },
-    linkedin: { connected: true, lastCheck: new Date(), tokenExpiresIn: 5 },
-    spotify: { connected: true, lastCheck: new Date(), tokenExpiresIn: 45 }
-  };
-};
+// Importar o serviço para comunicação com o servidor
+import { checkAllConnections } from '../../services/monitoring/connectionMonitor';
 
 function ConnectionStatusDashboard() {
   const [connectionStatus, setConnectionStatus] = useState({});
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(null);
+  const [message, setMessage] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -80,8 +70,8 @@ function ConnectionStatusDashboard() {
     setLoading(true);
     
     try {
-      // Substituir pela implementação real depois
-      const statuses = await mockCheckConnections();
+      // Usando o serviço real para verificar conexões
+      const statuses = await checkAllConnections();
       setConnectionStatus(statuses);
       setLastRefresh(new Date());
     } catch (error) {
@@ -140,9 +130,75 @@ function ConnectionStatusDashboard() {
     }
   };
 
-  const handleReconnect = (platform) => {
-    // Redirecionar para o assistente de conexão
-    navigate('/setup');
+  // Adicionar um listener para mensagens entre janelas (OAuth)
+  useEffect(() => {
+    const handleOAuthMessage = (event) => {
+      const message = event.data;
+      
+      // Verificar se é uma mensagem OAuth
+      if (message && (message.type === 'OAUTH_SUCCESS' || message.type === 'OAUTH_ERROR')) {
+        console.log('Recebido retorno do OAuth:', message);
+        
+        if (message.type === 'OAUTH_SUCCESS') {
+          // Autenticação bem-sucedida
+          setMessage({
+            severity: 'success',
+            text: `Conexão com ${message.platform} realizada com sucesso!`
+          });
+          
+          // Atualizar status de conexão
+          refreshConnectionStatus();
+        } else {
+          // Erro na autenticação
+          setMessage({
+            severity: 'error',
+            text: message.error || `Erro ao conectar com ${message.platform}`
+          });
+        }
+        
+        setLoading(false);
+      }
+    };
+    
+    // Adicionar o listener
+    window.addEventListener('message', handleOAuthMessage);
+    
+    // Remover listener ao desmontar
+    return () => {
+      window.removeEventListener('message', handleOAuthMessage);
+    };
+  }, []);
+
+  const handleConnect = async (platform) => {
+    setLoading(true);
+    setMessage(null);
+    
+    // Verificar se o serviço da plataforma está implementado
+    if (platform === 'youtube') {
+      try {
+        const youtubeService = require('../../services/platforms/youtube').default;
+        const authUrl = await youtubeService.getAuthUrl();
+        
+        // Abre a URL de autenticação em uma nova janela
+        window.open(authUrl, '_blank', 'width=600,height=700');
+        
+        // Mostrar mensagem de aguardando
+        setMessage({
+          severity: 'info',
+          text: `Por favor, complete a autenticação na janela aberta. Aguardando confirmação...`
+        });
+      } catch (error) {
+        console.error(`Erro ao conectar com ${platform}:`, error);
+        setMessage({
+          severity: 'error',
+          text: `Erro ao iniciar conexão com ${platform}: ${error.message}`
+        });
+        setLoading(false);
+      }
+    } else {
+      // Para outras plataformas, redirecionar para o assistente
+      navigate('/setup');
+    }
   };
   
   const handleGoBack = () => {
@@ -195,6 +251,12 @@ function ConnectionStatusDashboard() {
           </Typography>
         )}
         
+        {message && (
+          <Alert severity={message.severity} sx={{ mb: 2 }} onClose={() => setMessage(null)}>
+            {message.text}
+          </Alert>
+        )}
+        
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
@@ -230,16 +292,13 @@ function ConnectionStatusDashboard() {
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           {getStatusChip(status)}
                           
-                          {(!status || !status.connected || 
-                            (status.tokenExpiresIn && status.tokenExpiresIn < 10)) && (
-                            <Button 
-                              size="small" 
-                              color="primary" 
-                              onClick={() => handleReconnect(platform.id)}
-                            >
-                              Reconectar
-                            </Button>
-                          )}
+                          <Button 
+                            size="small" 
+                            color="primary" 
+                            onClick={() => handleConnect(platform.id)}
+                          >
+                            {(!status || !status.connected) ? "Conectar" : "Reconectar"}
+                          </Button>
                         </Box>
                       </CardContent>
                     </Card>
