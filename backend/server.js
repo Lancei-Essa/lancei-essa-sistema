@@ -30,9 +30,30 @@ if (!process.env.API_BASE_URL) {
   console.log(`✅ API_BASE_URL configurada: ${process.env.API_BASE_URL}`);
 }
 
-// Log de URLs de redirecionamento para depuração
-console.log('📊 YouTube redirect URI:', process.env.YOUTUBE_REDIRECT_URI);
-console.log('📊 Usando URL base para callbacks OAuth:', process.env.API_BASE_URL);
+// Garantir consistência nas URLs de redirecionamento
+console.log('🔍 Verificando consistência nas URLs de redirecionamento OAuth...');
+
+// Verificar e corrigir YOUTUBE_REDIRECT_URI
+if (!process.env.YOUTUBE_REDIRECT_URI || !process.env.YOUTUBE_REDIRECT_URI.includes(process.env.API_BASE_URL)) {
+  const oldValue = process.env.YOUTUBE_REDIRECT_URI;
+  process.env.YOUTUBE_REDIRECT_URI = `${process.env.API_BASE_URL}/api/youtube/oauth2callback`;
+  console.log(`⚠️ YOUTUBE_REDIRECT_URI inconsistente com API_BASE_URL. Corrigido:`);
+  console.log(`   - Valor anterior: ${oldValue || 'não definido'}`);
+  console.log(`   - Novo valor: ${process.env.YOUTUBE_REDIRECT_URI}`);
+} else {
+  console.log(`✅ YOUTUBE_REDIRECT_URI consistente: ${process.env.YOUTUBE_REDIRECT_URI}`);
+}
+
+// Log de todas as URLs de redirecionamento para depuração
+console.log('\n🔐 URLs de redirecionamento OAuth configuradas:');
+console.log(`🎬 YouTube: ${process.env.YOUTUBE_REDIRECT_URI}`);
+console.log(`📱 Instagram: ${process.env.INSTAGRAM_REDIRECT_URI || 'não configurado'}`);
+console.log(`🐦 Twitter: ${process.env.TWITTER_REDIRECT_URI || 'não configurado'}`);
+console.log(`👔 LinkedIn: ${process.env.LINKEDIN_REDIRECT_URI || 'não configurado'}`);
+console.log(`🎵 TikTok: ${process.env.TIKTOK_REDIRECT_URI || 'não configurado'}`);
+console.log(`🎵 Spotify: ${process.env.SPOTIFY_REDIRECT_URI || 'não configurado'}`);
+console.log(`📊 URL base para callbacks OAuth: ${process.env.API_BASE_URL}`);
+console.log('');
 app.use(cors());
 app.use(express.json());
 
@@ -420,16 +441,55 @@ const startServer = async () => {
   // Redirecionar para autorização do YouTube
   app.get('/api/youtube/auth', auth, (req, res) => {
     try {
+      console.log('[server.js] Iniciando redirecionamento direto para autorização YouTube');
+      
+      // Verificar e forçar o uso da URL de redirecionamento correta
+      // Este é um failsafe para garantir que estamos usando o valor correto para o ambiente atual
+      if (!process.env.YOUTUBE_REDIRECT_URI || !process.env.YOUTUBE_REDIRECT_URI.includes(process.env.API_BASE_URL)) {
+        console.log('[server.js] Corrigindo YOUTUBE_REDIRECT_URI para este request');
+        process.env.YOUTUBE_REDIRECT_URI = `${process.env.API_BASE_URL}/api/youtube/oauth2callback`;
+      }
+      
       const userId = req.user._id;
-      const authUrl = youtubeService.getAuthUrl(userId);
+      console.log(`[server.js] Gerando URL de autenticação para usuário ${userId}`);
+      
+      // Enviar o userId como state para identificação no callback
+      const authUrl = youtubeService.getAuthUrl(null);
+      console.log(`[server.js] Redirecionando para: ${authUrl}`);
+      
       res.redirect(authUrl);
     } catch (error) {
-      console.error('Erro ao redirecionar para autorização:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Erro ao redirecionar para autorização',
-        error: error.message
-      });
+      console.error('[server.js] Erro ao redirecionar para autorização YouTube:', error);
+      
+      // Renderizar página de erro amigável ao invés de retornar JSON
+      const errorHtml = `
+        <html>
+          <head>
+            <title>Erro na Autorização</title>
+            <style>
+              body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+              .error { color: red; font-size: 18px; }
+              .details { margin: 20px; padding: 10px; background: #f8f8f8; text-align: left; border-radius: 5px; }
+              button { padding: 10px 15px; margin-top: 20px; cursor: pointer; }
+            </style>
+          </head>
+          <body>
+            <h1>Erro na Autorização</h1>
+            <p class="error">${error.message}</p>
+            
+            <div class="details">
+              <p><strong>Detalhes técnicos:</strong></p>
+              <pre>${error.stack || 'Sem stack trace disponível'}</pre>
+            </div>
+            
+            <p>Ocorreu um erro ao iniciar o processo de autorização. Por favor, tente novamente ou contate o suporte.</p>
+            <button onclick="window.close()">Fechar</button>
+            <button onclick="window.location.href='/settings'">Voltar às Configurações</button>
+          </body>
+        </html>
+      `;
+      
+      res.status(500).send(errorHtml);
     }
   });
   
