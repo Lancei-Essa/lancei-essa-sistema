@@ -10,7 +10,7 @@ import {
   CloudUpload, Schedule, Analytics, BarChart,
   Settings, LinkOff
 } from '@mui/icons-material';
-import { checkYouTubeConnection, getYouTubeChannelStats } from '../services/platforms/youtube';
+import { checkYouTubeConnection, getYouTubeChannelStats, getYouTubeAuthUrl } from '../services/platforms/youtube';
 
 const YouTubeConfig = () => {
   const [connected, setConnected] = useState(false);
@@ -63,8 +63,24 @@ const YouTubeConfig = () => {
     }
   };
   
-  const handleConnect = () => {
-    window.location.href = '/api/youtube/auth';
+  const handleConnect = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      // Usar o serviço para obter a URL de autenticação
+      const { success, authUrl } = await getYouTubeAuthUrl();
+      
+      if (success && authUrl) {
+        window.location.href = authUrl;
+      } else {
+        setError('Erro ao gerar URL de autenticação');
+      }
+    } catch (err) {
+      console.error('Erro ao iniciar conexão com YouTube:', err);
+      setError(`Erro ao iniciar conexão com YouTube: ${err.message || 'Erro desconhecido'}`);
+    } finally {
+      setLoading(false);
+    }
   };
   
   const handleDisconnect = async () => {

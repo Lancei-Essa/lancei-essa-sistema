@@ -15,6 +15,10 @@ import MusicNoteIcon from '@mui/icons-material/MusicNote';
 import connectionMonitor from '../services/monitoring/connectionMonitor';
 import CompanyManager from '../components/AdminPanel/CompanyManager';
 
+// Importamos APIs das plataformas
+import { getYouTubeAuthUrl } from '../services/platforms/youtube';
+import { getInstagramAuthUrl } from '../services/platforms/instagram';
+
 // Importamos apenas as partes que vamos usar
 import { getStatusIcon, getStatusChip } from '../components/StatusDashboard/ConnectionUtils';
 
@@ -194,24 +198,31 @@ const Settings = () => {
       
       // Obter URL de autenticação específica para a plataforma
       if (platform === 'youtube') {
-        const youtubeService = require('../services/platforms/youtube').default;
-        const response = await youtubeService.getAuthUrl();
-        console.log('Resposta completa:', response);
-        
-        if (response && response.success && response.authUrl) {
-          authUrl = response.authUrl;
-        } else {
-          throw new Error(`URL de autenticação inválida: ${JSON.stringify(response)}`);
+        try {
+          const response = await getYouTubeAuthUrl();
+          console.log('Resposta do YouTube:', response);
+          
+          if (response && response.success && response.authUrl) {
+            authUrl = response.authUrl;
+          } else {
+            throw new Error(`URL de autenticação inválida: ${JSON.stringify(response)}`);
+          }
+        } catch (error) {
+          console.error('Erro ao obter URL de autenticação do YouTube:', error);
+          throw error;
         }
       } else if (platform === 'instagram') {
-        // Adicionar quando implementado
-        const instagramService = require('../services/platforms/instagram').default;
-        const response = await instagramService.getAuthUrl();
-        
-        if (response && response.success && response.authUrl) {
-          authUrl = response.authUrl;
-        } else {
-          throw new Error(`URL de autenticação inválida para Instagram`);
+        try {
+          const response = await getInstagramAuthUrl();
+          
+          if (response && response.success && response.authUrl) {
+            authUrl = response.authUrl;
+          } else {
+            throw new Error(`URL de autenticação inválida para Instagram`);
+          }
+        } catch (error) {
+          console.error('Erro ao obter URL de autenticação do Instagram:', error);
+          throw error;
         }
       } else {
         // Mensagem para plataformas não implementadas
