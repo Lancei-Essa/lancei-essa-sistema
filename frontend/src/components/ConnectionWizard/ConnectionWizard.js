@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Stepper, Step, StepLabel, Button, Typography, 
-  Paper, Box, CircularProgress, Alert
+  Paper, Box, CircularProgress, Alert, AppBar, Toolbar, IconButton
 } from '@mui/material';
 import YouTubeIcon from '@mui/icons-material/YouTube';
 import InstagramIcon from '@mui/icons-material/Instagram';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { useNavigate } from 'react-router-dom';
 
 // Import services
 import youtubeService from '../../services/platforms/youtube';
@@ -57,7 +59,16 @@ function ConnectionWizard() {
   const [connectionStatus, setConnectionStatus] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  
+  // Verificar autenticação
+  useEffect(() => {
+    if (!isAuthenticated) {
+      // Não estamos autenticados, redirecionar para login
+      navigate('/login');
+    }
+  }, [isAuthenticated, navigate]);
 
   // Verifica o status de conexão de todas as plataformas no carregamento
   useEffect(() => {
@@ -242,55 +253,85 @@ function ConnectionWizard() {
     );
   };
 
+  const handleGoBack = () => {
+    navigate('/social-media');
+  };
+
   return (
-    <Paper elevation={3} sx={{ p: 4, maxWidth: 800, mx: 'auto', my: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom align="center">
-        Conecte suas Redes Sociais
-      </Typography>
+    <>
+      <AppBar position="static" color="default" elevation={0}>
+        <Toolbar>
+          <IconButton edge="start" color="inherit" onClick={handleGoBack} aria-label="voltar">
+            <ArrowBackIcon />
+          </IconButton>
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+            Assistente de Configuração
+          </Typography>
+        </Toolbar>
+      </AppBar>
       
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4, textAlign: 'center' }}>
-        Siga os passos para conectar cada plataforma e começar a publicar seu conteúdo automaticamente.
-      </Typography>
-      
-      {error && (
-        <Alert severity={error.severity} sx={{ mb: 3 }}>
-          {error.message}
-        </Alert>
-      )}
-      
-      <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 4 }}>
-        {PLATFORMS.map((platform) => (
-          <Step key={platform.id}>
-            <StepLabel 
-              icon={platform.icon}
-              error={error && activeStep === PLATFORMS.indexOf(platform)}
-              completed={connectionStatus[platform.id]}
-            >
-              {platform.name}
-            </StepLabel>
-          </Step>
-        ))}
-      </Stepper>
-      
-      {renderPlatformStep(PLATFORMS[activeStep])}
-      
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
-        <Button 
-          variant="outlined"
-          onClick={handleBack}
-          disabled={activeStep === 0}
-        >
-          Voltar
-        </Button>
+      <Paper elevation={3} sx={{ p: 4, maxWidth: 800, mx: 'auto', my: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom align="center">
+          Conecte suas Redes Sociais
+        </Typography>
         
-        <Button
-          variant="contained"
-          onClick={activeStep === PLATFORMS.length - 1 ? handleReset : handleNext}
-        >
-          {activeStep === PLATFORMS.length - 1 ? 'Concluir' : 'Próximo'}
-        </Button>
-      </Box>
-    </Paper>
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 4, textAlign: 'center' }}>
+          Siga os passos para conectar cada plataforma e começar a publicar seu conteúdo automaticamente.
+        </Typography>
+        
+        {error && (
+          <Alert severity={error.severity} sx={{ mb: 3 }}>
+            {error.message}
+          </Alert>
+        )}
+        
+        <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 4 }}>
+          {PLATFORMS.map((platform) => (
+            <Step key={platform.id}>
+              <StepLabel 
+                icon={platform.icon}
+                error={error && activeStep === PLATFORMS.indexOf(platform)}
+                completed={connectionStatus[platform.id]}
+              >
+                {platform.name}
+              </StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+        
+        {renderPlatformStep(PLATFORMS[activeStep])}
+        
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
+          <Button 
+            variant="outlined"
+            onClick={handleBack}
+            disabled={activeStep === 0}
+          >
+            Voltar
+          </Button>
+          
+          <Button
+            variant="contained"
+            onClick={activeStep === PLATFORMS.length - 1 ? handleReset : handleNext}
+          >
+            {activeStep === PLATFORMS.length - 1 ? 'Concluir' : 'Próximo'}
+          </Button>
+        </Box>
+        
+        {activeStep === PLATFORMS.length - 1 && (
+          <Box sx={{ mt: 3, textAlign: 'center' }}>
+            <Button 
+              variant="contained" 
+              color="success" 
+              size="large"
+              onClick={handleGoBack}
+            >
+              Finalizar Configuração
+            </Button>
+          </Box>
+        )}
+      </Paper>
+    </>
   );
 }
 

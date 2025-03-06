@@ -59,11 +59,7 @@ function App() {
         <Router>
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/setup" element={
-              <PrivateRoute>
-                <ConnectionWizard />
-              </PrivateRoute>
-            } />
+            <Route path="/setup" element={<ConnectionWizard />} />
             
             {/* Rotas protegidas com Layout */}
             <Route element={<PrivateRoute />}>

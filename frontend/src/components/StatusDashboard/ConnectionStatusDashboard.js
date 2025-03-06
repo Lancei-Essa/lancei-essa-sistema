@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Paper, Typography, Grid, Card, CardContent, 
-  Box, CircularProgress, Button, Tooltip, Chip
+  Box, CircularProgress, Button, Tooltip, Chip,
+  AppBar, Toolbar, IconButton
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import WarningIcon from '@mui/icons-material/Warning';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import YouTubeIcon from '@mui/icons-material/YouTube';
 import InstagramIcon from '@mui/icons-material/Instagram';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
+import { useNavigate } from 'react-router-dom';
 
 // Serviços a serem implementados
 import { checkAllConnections } from '../../services/monitoring/connectionMonitor';
@@ -67,6 +70,7 @@ function ConnectionStatusDashboard() {
   const [connectionStatus, setConnectionStatus] = useState({});
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     refreshConnectionStatus();
@@ -137,27 +141,51 @@ function ConnectionStatusDashboard() {
   };
 
   const handleReconnect = (platform) => {
-    // Implementar lógica para reconectar plataforma
-    console.log(`Reconectando ${platform}...`);
+    // Redirecionar para o assistente de conexão
+    navigate('/setup');
+  };
+  
+  const handleGoBack = () => {
+    navigate('/social-media');
   };
 
   return (
-    <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h5" component="h2" gutterBottom>
-          Status das Conexões
-        </Typography>
-        
-        <Box>
-          <Button 
-            startIcon={<RefreshIcon />}
-            onClick={refreshConnectionStatus}
-            disabled={loading}
-            size="small"
-            variant="outlined"
-          >
-            {loading ? 'Atualizando...' : 'Atualizar Status'}
-          </Button>
+    <>
+      <AppBar position="static" color="default" elevation={0}>
+        <Toolbar>
+          <IconButton edge="start" color="inherit" onClick={handleGoBack} aria-label="voltar">
+            <ArrowBackIcon />
+          </IconButton>
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+            Status de Conexões
+          </Typography>
+        </Toolbar>
+      </AppBar>
+      
+      <Paper elevation={3} sx={{ p: 3, m: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+          <Typography variant="h5" component="h2" gutterBottom>
+            Status das Conexões
+          </Typography>
+          
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button 
+              variant="outlined"
+              color="primary"
+              onClick={() => navigate('/setup')}
+            >
+              Assistente de Conexão
+            </Button>
+            
+            <Button 
+              startIcon={<RefreshIcon />}
+              onClick={refreshConnectionStatus}
+              disabled={loading}
+              size="small"
+              variant="outlined"
+            >
+              {loading ? 'Atualizando...' : 'Atualizar Status'}
+            </Button>
           
           {lastRefresh && (
             <Typography variant="caption" display="block" sx={{ textAlign: 'right', mt: 0.5 }}>
@@ -172,7 +200,8 @@ function ConnectionStatusDashboard() {
           <CircularProgress />
         </Box>
       ) : (
-        <Grid container spacing={2}>
+        <Box sx={{ maxHeight: '60vh', overflow: 'auto' }}>
+          <Grid container spacing={2}>
           {PLATFORMS.map((platform) => {
             const status = connectionStatus[platform.id];
             
@@ -226,6 +255,7 @@ function ConnectionStatusDashboard() {
         </Typography>
       </Box>
     </Paper>
+    </>
   );
 }
 
