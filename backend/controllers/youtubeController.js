@@ -7,14 +7,48 @@ const { promisify } = require('util');
 const unlinkAsync = promisify(fs.unlink);
 
 // Obter URL de autenticação
-exports.getAuthUrl = (req, res) => {
+exports.getAuthUrl = async (req, res) => {
   try {
-    // Obter informações do usuário, se necessário
+    // Obter informações do usuário
     const userId = req.user ? req.user._id : null;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuário não autenticado'
+      });
+    }
+    
     console.log(`Gerando URL de autenticação para usuário: ${userId}`);
     
-    // Gerar URL de autenticação
-    const authUrl = youtubeService.getAuthUrl();
+    // Buscar usuário e empresa associada
+    const User = require('../models/User');
+    const Company = require('../models/Company');
+    
+    const user = await User.findById(userId).populate('company');
+    
+    let companyCredentials = null;
+    
+    // Verificar se o usuário pertence a uma empresa com credenciais configuradas
+    if (user.company) {
+      console.log(`Usuário pertence à empresa: ${user.company.name}`);
+      
+      // Buscar empresa com credenciais
+      const company = await Company.findById(user.company._id)
+        .select('+oauthCredentials.youtube.client_id +oauthCredentials.youtube.client_secret');
+      
+      if (company && 
+          company.oauthCredentials && 
+          company.oauthCredentials.youtube && 
+          company.oauthCredentials.youtube.enabled) {
+        
+        // Obter credenciais descriptografadas
+        companyCredentials = company.getPlatformCredentials('youtube');
+        console.log('Usando credenciais específicas da empresa');
+      }
+    }
+    
+    // Gerar URL de autenticação usando credenciais específicas ou padrão
+    const authUrl = youtubeService.getAuthUrl(companyCredentials);
     
     console.log(`URL de autenticação gerada: ${authUrl}`);
     
@@ -43,7 +77,38 @@ exports.authorize = (req, res) => {
 exports.authCallback = async (req, res) => {
   try {
     const { code } = req.query;
-    const tokens = await youtubeService.getTokensFromCode(code);
+    
+    // Buscar usuário e empresa associada
+    const User = require('../models/User');
+    const Company = require('../models/Company');
+    
+    const user = await User.findById(req.user._id).populate('company');
+    
+    let companyCredentials = null;
+    let companyId = null;
+    
+    // Verificar se o usuário pertence a uma empresa com credenciais configuradas
+    if (user.company) {
+      companyId = user.company._id;
+      console.log(`Usuário pertence à empresa: ${user.company.name}`);
+      
+      // Buscar empresa com credenciais
+      const company = await Company.findById(companyId)
+        .select('+oauthCredentials.youtube.client_id +oauthCredentials.youtube.client_secret');
+      
+      if (company && 
+          company.oauthCredentials && 
+          company.oauthCredentials.youtube && 
+          company.oauthCredentials.youtube.enabled) {
+        
+        // Obter credenciais descriptografadas
+        companyCredentials = company.getPlatformCredentials('youtube');
+        console.log('Usando credenciais específicas da empresa para obter tokens');
+      }
+    }
+    
+    // Obter tokens usando credenciais específicas ou padrão
+    const tokens = await youtubeService.getTokensFromCode(code, companyCredentials);
     
     // Salvar ou atualizar tokens no banco de dados
     let youtubeToken = await YouTubeToken.findOne({ user: req.user._id });
@@ -56,9 +121,15 @@ exports.authCallback = async (req, res) => {
       youtubeToken.is_valid = true;
       youtubeToken.last_refreshed = Date.now();
       youtubeToken.updatedAt = Date.now();
+      
+      // Associar à empresa se ainda não estiver associado
+      if (companyId && !youtubeToken.company) {
+        youtubeToken.company = companyId;
+      }
     } else {
       youtubeToken = new YouTubeToken({
         user: req.user._id,
+        company: companyId, // Associar à empresa
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
         expiry_date: tokens.expiry_date,
@@ -69,13 +140,23 @@ exports.authCallback = async (req, res) => {
     }
     
     try {
-      // Obter o ID do canal associado
-      youtubeService.setCredentials({
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        expiry_date: tokens.expiry_date
-      });
+      // Criar cliente OAuth específico para esta operação
+      let oauthClient;
+      if (companyCredentials) {
+        oauthClient = youtubeService.setCredentials({
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          expiry_date: tokens.expiry_date
+        }, createOAuth2Client(companyCredentials));
+      } else {
+        youtubeService.setCredentials({
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          expiry_date: tokens.expiry_date
+        });
+      }
       
+      // Obter o ID do canal associado
       const channelResponse = await youtubeService.getChannelInfo();
       if (channelResponse && channelResponse.items && channelResponse.items.length > 0) {
         youtubeToken.channel_id = channelResponse.items[0].id;
@@ -87,7 +168,14 @@ exports.authCallback = async (req, res) => {
     
     await youtubeToken.save();
     
-    res.redirect('/settings'); // Redirecionar para página de configurações
+    // Atualizar status de conexão do usuário
+    await User.findByIdAndUpdate(req.user._id, {
+      'socialConnections.youtube.connected': true,
+      'socialConnections.youtube.lastConnected': Date.now()
+    });
+    
+    // Redirecionar para página de sucesso
+    res.redirect('/status-dashboard?success=youtube');
   } catch (error) {
     console.error('Erro no callback de autorização:', error);
     res.status(500).json({ 

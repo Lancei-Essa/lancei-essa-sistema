@@ -8,6 +8,12 @@ const YouTubeTokenSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+  company: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Company',
+    required: true,
+    index: true
+  },
   access_token: {
     type: String,
     required: true,

@@ -20,6 +20,10 @@ const UserSchema = new mongoose.Schema({
     enum: ['admin', 'editor', 'viewer'],
     default: 'viewer'
   },
+  company: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Company'
+  },
   socialConnections: {
     youtube: {
       connected: { type: Boolean, default: false },

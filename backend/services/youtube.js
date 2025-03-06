@@ -6,8 +6,8 @@ const readFileAsync = promisify(fs.readFile);
 // Verificar se as variáveis de ambiente estão configuradas
 const checkEnvVariables = () => {
   if (!process.env.YOUTUBE_CLIENT_ID || !process.env.YOUTUBE_CLIENT_SECRET || !process.env.YOUTUBE_REDIRECT_URI) {
-    console.error('Erro: Variáveis de ambiente do YouTube não configuradas corretamente.');
-    console.error('Por favor, configure YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET e YOUTUBE_REDIRECT_URI no .env');
+    console.error('Aviso: Variáveis de ambiente globais do YouTube não configuradas.');
+    console.error('Será necessário usar credenciais específicas da empresa.');
     return false;
   }
   return true;
@@ -16,12 +16,25 @@ const checkEnvVariables = () => {
 // Verificamos no início
 const envVariablesConfigured = checkEnvVariables();
 
-// Configuração OAuth
-const oauth2Client = new google.auth.OAuth2(
-  process.env.YOUTUBE_CLIENT_ID,
-  process.env.YOUTUBE_CLIENT_SECRET,
-  process.env.YOUTUBE_REDIRECT_URI
-);
+// Função para criar um cliente OAuth2 com credenciais específicas
+const createOAuth2Client = (credentials = null) => {
+  const clientId = credentials?.client_id || process.env.YOUTUBE_CLIENT_ID;
+  const clientSecret = credentials?.client_secret || process.env.YOUTUBE_CLIENT_SECRET;
+  const redirectUri = credentials?.redirect_uri || process.env.YOUTUBE_REDIRECT_URI;
+  
+  if (!clientId || !clientSecret || !redirectUri) {
+    throw new Error('Credenciais do YouTube não disponíveis. Configure-as no arquivo .env ou forneça credenciais específicas.');
+  }
+  
+  return new google.auth.OAuth2(
+    clientId,
+    clientSecret,
+    redirectUri
+  );
+};
+
+// Cliente OAuth padrão (usando variáveis de ambiente)
+const oauth2Client = createOAuth2Client();
 
 // YouTube API client
 const youtube = google.youtube({
@@ -30,20 +43,18 @@ const youtube = google.youtube({
 });
 
 // Gerar URL de autorização
-const getAuthUrl = () => {
-  // Verificar se as credenciais estão configuradas
-  if (!envVariablesConfigured) {
-    throw new Error('Credenciais do YouTube não configuradas. Configure YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET e YOUTUBE_REDIRECT_URI.');
-  }
-  
+const getAuthUrl = (credentials = null) => {
   try {
+    // Criar cliente OAuth específico se credenciais forem fornecidas
+    const client = credentials ? createOAuth2Client(credentials) : oauth2Client;
+    
     const scopes = [
       'https://www.googleapis.com/auth/youtube.upload',
       'https://www.googleapis.com/auth/youtube',
       'https://www.googleapis.com/auth/youtube.readonly'
     ];
 
-    return oauth2Client.generateAuthUrl({
+    return client.generateAuthUrl({
       access_type: 'offline',
       scope: scopes,
       include_granted_scopes: true
@@ -55,24 +66,35 @@ const getAuthUrl = () => {
 };
 
 // Obter tokens a partir do código de autorização
-const getTokensFromCode = async (code) => {
-  const { tokens } = await oauth2Client.getToken(code);
-  oauth2Client.setCredentials(tokens);
-  return tokens;
+const getTokensFromCode = async (code, credentials = null) => {
+  try {
+    // Criar cliente OAuth específico se credenciais forem fornecidas
+    const client = credentials ? createOAuth2Client(credentials) : oauth2Client;
+    
+    const { tokens } = await client.getToken(code);
+    client.setCredentials(tokens);
+    return tokens;
+  } catch (error) {
+    console.error('Erro ao obter tokens do código de autorização:', error);
+    throw new Error(`Erro ao obter tokens: ${error.message}`);
+  }
 };
 
 // Renovar um token de acesso usando o refresh token
-const refreshAccessToken = async (refreshToken) => {
+const refreshAccessToken = async (refreshToken, credentials = null) => {
   try {
-    oauth2Client.setCredentials({
+    // Criar cliente OAuth específico se credenciais forem fornecidas
+    const client = credentials ? createOAuth2Client(credentials) : oauth2Client;
+    
+    client.setCredentials({
       refresh_token: refreshToken
     });
     
-    const { credentials } = await oauth2Client.refreshAccessToken();
+    const { credentials: newCredentials } = await client.refreshAccessToken();
     return {
-      access_token: credentials.access_token,
-      refresh_token: credentials.refresh_token || refreshToken, // Em caso de não retornar um novo refresh token
-      expiry_date: credentials.expiry_date
+      access_token: newCredentials.access_token,
+      refresh_token: newCredentials.refresh_token || refreshToken, // Em caso de não retornar um novo refresh token
+      expiry_date: newCredentials.expiry_date
     };
   } catch (error) {
     console.error('Erro ao renovar token do YouTube:', error);
@@ -81,8 +103,10 @@ const refreshAccessToken = async (refreshToken) => {
 };
 
 // Configurar credenciais
-const setCredentials = (tokens) => {
-  oauth2Client.setCredentials(tokens);
+const setCredentials = (tokens, client = null) => {
+  const oauthClient = client || oauth2Client;
+  oauthClient.setCredentials(tokens);
+  return oauthClient;
 };
 
 // Upload de vídeo para o YouTube
