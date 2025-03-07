@@ -99,20 +99,32 @@ const getAuthUrl = (credentials = null) => {
   console.log('[YouTube Service] Credenciais fornecidas:', credentials ? 'Sim' : 'Não');
   
   try {
-    // Usar sempre o método direto com client_id definido
-    // Construir a URL manualmente com client_id
-    console.log('[YouTube Service] Usando modo direto para geração de URL');
+    // Criar cliente OAuth específico se credenciais forem fornecidas
+    let client;
     
-    // Usar credenciais específicas ou do ambiente
-    const clientId = credentials?.client_id || process.env.YOUTUBE_CLIENT_ID;
-    const redirectUri = credentials?.redirect_uri || process.env.YOUTUBE_REDIRECT_URI;
-    
-    console.log('[YouTube Service] Client ID disponível:', clientId ? 'Sim' : 'Não');
-    console.log('[YouTube Service] Redirect URI:', redirectUri);
-    
-    if (!clientId || !redirectUri) {
-      throw new Error('Credenciais incompletas. Verifique YOUTUBE_CLIENT_ID e YOUTUBE_REDIRECT_URI.');
+    if (credentials) {
+      console.log('[YouTube Service] Usando credenciais específicas fornecidas');
+      client = createOAuth2Client(credentials);
+    } else {
+      console.log('[YouTube Service] Usando credenciais globais do ambiente');
+      
+      // Se não temos as variáveis de ambiente configuradas e não foram fornecidas credenciais específicas
+      if (!envVariablesConfigured && !credentials) {
+        throw new Error('Credenciais do YouTube não configuradas. Configure as variáveis de ambiente ou forneça credenciais específicas.');
+      }
+      
+      // Recriar cliente OAuth2 para garantir que estamos usando as variáveis de ambiente mais recentes
+      try {
+        oauth2Client = createOAuth2Client();
+        console.log('[YouTube Service] Cliente OAuth2 recriado com sucesso');
+      } catch (oauthError) {
+        console.error('[YouTube Service] Erro ao recriar cliente OAuth2:', oauthError);
+      }
+      
+      client = oauth2Client;
     }
+    
+    console.log('[YouTube Service] Gerando URL com escopos');
     
     const scopes = [
       'https://www.googleapis.com/auth/youtube.upload',
@@ -120,16 +132,19 @@ const getAuthUrl = (credentials = null) => {
       'https://www.googleapis.com/auth/youtube.readonly'
     ];
     
-    // Construir a URL de autorização manualmente com o client_id explícito
-    const authUrl = 'https://accounts.google.com/o/oauth2/auth?' + 
-      `client_id=${encodeURIComponent(clientId)}` +
-      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-      '&response_type=code' +
-      `&scope=${encodeURIComponent(scopes.join(' '))}` +
-      '&access_type=offline' +
-      '&include_granted_scopes=true';
+    console.log('[YouTube Service] Detalhes do cliente OAuth2:', {
+      clientId: Boolean(client._clientId),
+      clientSecret: Boolean(client._clientSecret),
+      redirectUri: client._redirectUri
+    });
     
-    console.log('[YouTube Service] URL gerada em modo direto:', authUrl);
+    const authUrl = client.generateAuthUrl({
+      access_type: 'offline',
+      scope: scopes,
+      include_granted_scopes: true
+    });
+    
+    console.log('[YouTube Service] URL de autenticação gerada com sucesso:', authUrl);
     return authUrl;
   } catch (error) {
     console.error('[YouTube Service] ERRO ao gerar URL de autenticação:', error);
@@ -138,31 +153,14 @@ const getAuthUrl = (credentials = null) => {
       stack: error.stack
     });
     
+    // Continuar com métodos de fallback apenas se necessário
+    throw error; // Remova este comentário para desativar os fallbacks e forçar o uso correto
+    
     // Cliente OAuth de Emergência - Usar ID Público do Google
     try {
-      console.log('[YouTube Service] Tentando método de emergência com cliente público');
-      
-      // Client ID público de desktop do Google (disponível publicamente)
-      const clientId = '292085223830-7pau1pfo0f35um4elm8niqj05dmdvklp.apps.googleusercontent.com';
-      const redirectUri = 'http://localhost';
-      
-      const scopes = [
-        'https://www.googleapis.com/auth/youtube.readonly'
-      ];
-      
-      const authUrl = 'https://accounts.google.com/o/oauth2/auth?' + 
-        `client_id=${encodeURIComponent(clientId)}` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-        '&response_type=code' +
-        `&scope=${encodeURIComponent(scopes.join(' '))}` +
-        '&access_type=offline' +
-        '&include_granted_scopes=true';
-      
-      console.log('[YouTube Service] URL de emergência gerada:', authUrl);
-      return authUrl;
+      // ... código de fallback existente ...
     } catch (fallbackError) {
-      console.error('[YouTube Service] Emergência também falhou:', fallbackError);
-      throw new Error(`Erro ao gerar URL de autenticação (todos os métodos falharam): ${error.message}`);
+      // ... código existente ...
     }
   }
 };

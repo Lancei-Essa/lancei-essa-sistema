@@ -279,24 +279,17 @@ Redirect URI: ${emergencyUrl.match(/redirect_uri=([^&]*)/)[1]}
       
       console.log('[YouTube Connect] Resposta recebida:', response);
       
-      if (response && response.success && response.authUrl) {
-        // Verificar se a autenticação é do tipo desktop (sempre deve ser com nossa implementação unificada)
-        if (response.method === 'desktop' || response.flowType === 'code-entry') {
-          // Abrir nova janela com a URL de autenticação
-          window.open(response.authUrl, 'YouTube Auth', 'width=600,height=600');
-          
-          // Mostrar interface para inserir o código
-          setShowAuthCodeInput(true);
-          
-          // Restaurar botão para estado normal
-          if (connectButton) {
-            connectButton.innerHTML = 'Conectar ao YouTube';
-            connectButton.style.opacity = '1';
-          }
-        } else {
-          // Caso não seja método desktop (não deve acontecer com nossa implementação unificada)
-          console.warn('[YouTube Connect] Método inesperado, redirecionando...');
-          window.location.href = response.authUrl;
+      if (response && response.authUrl) {
+        // Abrir nova janela com a URL de autenticação
+        window.open(response.authUrl, 'YouTube Auth', 'width=600,height=600');
+        
+        // Mostrar interface para inserir o código
+        setShowAuthCodeInput(true);
+        
+        // Restaurar botão para estado normal
+        if (connectButton) {
+          connectButton.innerHTML = 'Conectar ao YouTube';
+          connectButton.style.opacity = '1';
         }
       } else {
         throw new Error('Resposta inválida do servidor');
@@ -511,7 +504,7 @@ Redirect URI: ${emergencyUrl.match(/redirect_uri=([^&]*)/)[1]}
             </Button>
           </Box>
         ) : (
-          {showAuthCodeInput ? (
+          showAuthCodeInput ? (
             <Box sx={{ mt: 2 }}>
               <Typography variant="subtitle1" gutterBottom>
                 Insira o código de autorização fornecido pelo Google:
@@ -574,7 +567,7 @@ Redirect URI: ${emergencyUrl.match(/redirect_uri=([^&]*)/)[1]}
             >
               Conectar ao YouTube
             </Button>
-          )}
+          )
         )}
       </Box>
       

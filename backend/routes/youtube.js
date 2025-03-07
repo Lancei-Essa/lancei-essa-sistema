@@ -148,4 +148,13 @@ router.get('/metrics/history', (req, res) => {
   });
 });
 
+// Adicione esta rota para verificar variáveis de ambiente
+router.get('/env-check', async (req, res) => {
+  res.json({
+    clientId: process.env.YOUTUBE_CLIENT_ID ? 'Configurado' : 'Não configurado',
+    clientSecret: process.env.YOUTUBE_CLIENT_SECRET ? 'Configurado' : 'Não configurado',
+    redirectUri: process.env.YOUTUBE_REDIRECT_URI
+  });
+});
+
 module.exports = router;
