@@ -7,7 +7,7 @@ import {
 } from '@mui/material';
 import {
   ExpandMore, YouTube, Visibility, ThumbUp, Comment, 
-  CloudDownload, VideoLibrary, Person, Schedule
+  CloudDownload, VideoLibrary, Person, Schedule, Refresh
 } from '@mui/icons-material';
 import { getYouTubeMetrics } from '../services/platforms/youtube';
 
