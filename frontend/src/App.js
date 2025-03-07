@@ -6,6 +6,7 @@ import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import Layout from './components/Layout';
 import { CircularProgress, Box } from '@mui/material';
+import YouTubeAnalytics from './pages/YouTubeAnalytics';
 
 // Lazy loaded components
 const Login = lazy(() => import('./pages/Login'));
@@ -72,6 +73,15 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/setup" element={<ConnectionWizard />} />
+              
+              {/* YouTube Analytics como rota independente */}
+              <Route path="/youtube-analytics" element={
+                <PrivateRoute>
+                  <Layout>
+                    <YouTubeAnalytics />
+                  </Layout>
+                </PrivateRoute>
+              } />
               
               {/* Rotas protegidas com Layout */}
               <Route element={<PrivateRoute />}>
