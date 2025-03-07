@@ -108,6 +108,7 @@ const Layout = () => {
       ]
     },
     { text: 'Métricas', icon: <BarChart />, path: '/metrics' },
+    { text: 'YouTube Analytics', icon: <BarChart />, path: '/youtube-analytics' }, // Nova linha
     { text: 'Documentação', icon: <Help />, path: '/documentation' },
     { text: 'Configurações', icon: <Settings />, path: '/settings' },
   ];
