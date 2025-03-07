@@ -2,8 +2,60 @@ const express = require('express');
 const { protect } = require('../middleware/auth');
 const { uploadMiddleware } = require('../middleware/fileUpload');
 const youtubeController = require('../controllers/youtubeController');
+const youtubeService = require('../services/youtube');
+const YouTubeToken = require('../models/YouTubeToken');
 
 const router = express.Router();
+
+// Rota não protegida para testes (REMOVER DEPOIS DE TESTAR)
+// Deve ser colocada ANTES do middleware protect
+router.get('/test-youtube-data', async (req, res) => {
+  try {
+    // Buscar qualquer token válido no sistema (apenas para teste)
+    const token = await YouTubeToken.findOne({is_valid: true})
+      .select('+access_token +refresh_token');
+    
+    if (!token) {
+      return res.json({
+        success: false,
+        message: "Nenhum token do YouTube válido encontrado no sistema"
+      });
+    }
+    
+    // Obter credenciais descriptografadas
+    const tokens = token.getDecryptedTokens();
+    
+    // Configurar cliente OAuth
+    youtubeService.setCredentials({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expiry_date: tokens.expiry_date
+    });
+    
+    // Obter dados básicos do canal
+    const channelResponse = await youtubeService.getChannelInfo();
+    
+    // Retornar resposta
+    res.json({
+      success: true,
+      channel: channelResponse?.items?.[0] || null,
+      token_info: {
+        channel_id: token.channel_id,
+        is_valid: token.is_valid,
+        last_used: token.last_used,
+        expires_at: new Date(token.expiry_date).toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Erro no teste do YouTube:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao obter dados de teste do YouTube',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
 
 // Aplicar middleware de autenticação em todas as rotas
 router.use(protect);
@@ -148,12 +200,12 @@ router.get('/metrics/history', (req, res) => {
   });
 });
 
-// Adicione esta rota para verificar variáveis de ambiente
-router.get('/env-check', async (req, res) => {
+// Adicione esta rota para verificar variáveis de ambiente com detalhes adicionais
+router.get('/env-debug', (req, res) => {
   res.json({
-    clientId: process.env.YOUTUBE_CLIENT_ID ? 'Configurado' : 'Não configurado',
-    clientSecret: process.env.YOUTUBE_CLIENT_SECRET ? 'Configurado' : 'Não configurado',
-    redirectUri: process.env.YOUTUBE_REDIRECT_URI
+    client_id: process.env.YOUTUBE_CLIENT_ID ? 'Configurado (comprimento: ' + process.env.YOUTUBE_CLIENT_ID.length + ')' : 'Não configurado',
+    client_secret: process.env.YOUTUBE_CLIENT_SECRET ? 'Configurado (comprimento: ' + process.env.YOUTUBE_CLIENT_SECRET.length + ')' : 'Não configurado',
+    redirect_uri: process.env.YOUTUBE_REDIRECT_URI
   });
 });
 
