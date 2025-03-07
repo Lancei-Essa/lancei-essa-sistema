@@ -201,12 +201,47 @@ router.get('/metrics/history', (req, res) => {
 });
 
 // Adicione esta rota para verificar variáveis de ambiente com detalhes adicionais
-router.get('/env-debug', (req, res) => {
-  res.json({
+router.get('/env-debug', async (req, res) => {
+  // Informações de ambiente
+  const envInfo = {
     client_id: process.env.YOUTUBE_CLIENT_ID ? 'Configurado (comprimento: ' + process.env.YOUTUBE_CLIENT_ID.length + ')' : 'Não configurado',
     client_secret: process.env.YOUTUBE_CLIENT_SECRET ? 'Configurado (comprimento: ' + process.env.YOUTUBE_CLIENT_SECRET.length + ')' : 'Não configurado',
     redirect_uri: process.env.YOUTUBE_REDIRECT_URI
-  });
+  };
+  
+  // Tentar obter dados do YouTube (se houver token válido)
+  try {
+    const YouTubeToken = require('../models/YouTubeToken');
+    const youtubeService = require('../services/youtube');
+    
+    const token = await YouTubeToken.findOne({is_valid: true})
+      .select('+access_token +refresh_token');
+    
+    if (token) {
+      // Token encontrado, tentar obter dados
+      const tokens = token.getDecryptedTokens();
+      youtubeService.setCredentials({
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expiry_date: tokens.expiry_date
+      });
+      
+      const channelResponse = await youtubeService.getChannelInfo();
+      
+      return res.json({
+        env: envInfo,
+        youtube_data: {
+          success: true,
+          channel: channelResponse?.items?.[0] || null
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Erro ao tentar dados do YouTube:', error);
+  }
+  
+  // Se chegarmos aqui, só retornamos as infos de ambiente
+  return res.json(envInfo);
 });
 
 module.exports = router;
