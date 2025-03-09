@@ -11,6 +11,7 @@ export const AuthProvider = ({ children }) => {
     const loadUser = async () => {
       try {
         const currentUser = getCurrentUser();
+        console.log("AuthContext: getCurrentUser() retornou:", currentUser);
         if (currentUser) {
           setUser(currentUser);
         }
