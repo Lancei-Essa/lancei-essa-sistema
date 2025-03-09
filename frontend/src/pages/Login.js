@@ -26,12 +26,16 @@ const Login = () => {
           throw new Error('Nome é obrigatório para cadastro');
         }
         const response = await register({ name, email, password });
-        setUser(response.data);
+        const { token, user } = response.data;
+        localStorage.setItem('token', token); // Salva o token no localStorage
+        setUser(user);
         navigate('/dashboard');
       } else {
         // Login
         const response = await login(email, password);
-        setUser(response.data);
+        const { token, user } = response.data;
+        localStorage.setItem('token', token); // Salva o token no localStorage
+        setUser(user);
         navigate('/dashboard');
       }
     } catch (error) {
