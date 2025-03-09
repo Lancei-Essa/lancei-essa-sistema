@@ -76,11 +76,9 @@ function App() {
               
               {/* YouTube Analytics como rota independente */}
               <Route path="/youtube-analytics" element={
-                <PrivateRoute>
-                  <Layout>
-                    <YouTubeAnalytics />
-                  </Layout>
-                </PrivateRoute>
+                <Layout>
+                  <YouTubeAnalytics />
+                </Layout>
               } />
               
               {/* Rotas protegidas com Layout */}

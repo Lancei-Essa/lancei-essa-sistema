@@ -61,7 +61,7 @@ const DrawerHeader = styled('div')(({ theme }) => ({
 }));
 
 const Layout = () => {
-  console.log("Layout montado");
+  console.log("Layout montou");
 
   const theme = useTheme();
   const navigate = useNavigate();
