@@ -21,6 +21,7 @@ const YouTubeDataTable = () => {
   }, []);
   
   const fetchYouTubeData = async () => {
+    console.log("Chamou fetchYouTubeData");
     setLoading(true);
     try {
       const response = await getYouTubeMetrics();
