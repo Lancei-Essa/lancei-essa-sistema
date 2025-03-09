@@ -160,14 +160,47 @@ export const getYouTubeMetrics = async (options = {}) => {
     const { period = '30days', type = 'views' } = options;
     
     console.log('[YouTube] Obtendo métricas atuais...');
+    console.log('[YouTube] URL da requisição:', '/youtube/metrics');
+    console.log('[YouTube] Parâmetros:', { period, type });
+    
     const response = await api.get('/youtube/metrics', {
       params: { period, type }
     });
     
     console.log('[YouTube] Resposta recebida da API:', response.data);
+    
+    // Verificação adicional para garantir que a resposta tenha a estrutura esperada
+    if (!response.data) {
+      throw new Error('Resposta vazia do servidor');
+    }
+    
+    // Se a resposta não tiver a propriedade 'success', adicioná-la
+    if (response.data.success === undefined) {
+      console.log('[YouTube] Adicionando propriedade success à resposta');
+      response.data = { 
+        success: true, 
+        data: response.data 
+      };
+    }
+    
     return response.data;
   } catch (error) {
-    throw error.response?.data || { success: false, message: 'Erro ao obter métricas do YouTube' };
+    console.error('[YouTube] Erro ao obter métricas:', error);
+    console.error('[YouTube] Detalhes do erro:', error.response || error.message);
+    
+    // Melhorar o objeto de erro para fornecer mais informações
+    const errorObj = {
+      success: false, 
+      message: 'Erro ao obter métricas do YouTube',
+      details: error.message
+    };
+    
+    if (error.response) {
+      errorObj.statusCode = error.response.status;
+      errorObj.serverMessage = error.response.data?.message;
+    }
+    
+    throw errorObj;
   }
 };
 

@@ -11,7 +11,7 @@ import {
 } from '@mui/icons-material';
 import { getYouTubeMetrics } from '../services/platforms/youtube';
 
-const YouTubeDataTable = () => {
+const YouTubeDataTable = ({ forceRender }) => {
   console.log("YouTubeDataTable montou"); // Log de montagem
 
   const [loading, setLoading] = useState(true);
@@ -21,23 +21,27 @@ const YouTubeDataTable = () => {
   useEffect(() => {
     console.log("useEffect em YouTubeDataTable executado");
     fetchYouTubeData();
-  }, []);
+  }, [forceRender]);
   
   const fetchYouTubeData = async () => {
     console.log("Chamou fetchYouTubeData");
     setLoading(true);
+    
     try {
+      // Adicionar logs para debug
+      console.log("Antes de chamar getYouTubeMetrics");
       const response = await getYouTubeMetrics();
       console.log('YouTube data:', response);
       
-      if (response.success) {
+      if (response && response.success) {
         setData(response.data);
       } else {
-        setError(response.message || 'Erro ao obter dados do YouTube');
+        console.error('Resposta sem sucesso:', response);
+        setError(response?.message || 'Erro ao obter dados do YouTube');
       }
     } catch (err) {
       console.error('Erro ao buscar dados do YouTube:', err);
-      setError('Erro ao se comunicar com o servidor');
+      setError('Erro ao se comunicar com o servidor: ' + (err.message || 'Erro desconhecido'));
     } finally {
       setLoading(false);
     }
