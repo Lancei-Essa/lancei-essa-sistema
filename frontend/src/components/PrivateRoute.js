@@ -3,7 +3,9 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const PrivateRoute = () => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
+  
+  console.log("PrivateRoute:", { isAuthenticated, loading, user });
 
   if (loading) {
     return <div>Carregando...</div>;

@@ -12,11 +12,14 @@ import {
 import { getYouTubeMetrics } from '../services/platforms/youtube';
 
 const YouTubeDataTable = () => {
+  console.log("YouTubeDataTable montou");
+
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   
   useEffect(() => {
+    console.log("useEffect de YouTubeDataTable executado");
     fetchYouTubeData();
   }, []);
   
