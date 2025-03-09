@@ -6,7 +6,6 @@ import { AuthProvider } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import Layout from './components/Layout';
 import { CircularProgress, Box } from '@mui/material';
-import YouTubeAnalytics from './pages/YouTubeAnalytics';
 
 // Lazy loaded components
 const Login = lazy(() => import('./pages/Login'));
@@ -22,6 +21,7 @@ const NewsletterGenerator = lazy(() => import('./pages/NewsletterGenerator'));
 const NewsletterHistory = lazy(() => import('./pages/NewsletterHistory'));
 const Documentation = lazy(() => import('./pages/Documentation'));
 const ConnectionWizard = lazy(() => import('./components/ConnectionWizard/ConnectionWizard'));
+const YouTubeAnalytics = lazy(() => import('./pages/YouTubeAnalytics'));
 
 // Loading component for Suspense
 const Loading = () => (
@@ -74,12 +74,12 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/setup" element={<ConnectionWizard />} />
               
-              {/* YouTube Analytics como rota independente */}
-              <Route path="/youtube-analytics" element={
-                <Layout>
-                  <YouTubeAnalytics />
-                </Layout>
-              } />
+              {/* YouTube Analytics como rota protegida */}
+              <Route element={<PrivateRoute />}>
+                <Route element={<Layout />}>
+                  <Route path="/youtube-analytics" element={<YouTubeAnalytics />} />
+                </Route>
+              </Route>
               
               {/* Rotas protegidas com Layout */}
               <Route element={<PrivateRoute />}>

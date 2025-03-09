@@ -1,71 +1,111 @@
 import React, { useState, useEffect } from 'react';
-import { Typography, Box, Paper, Alert, CircularProgress } from '@mui/material';
-import YouTubeDataTable from '../components/YouTubeDataTable';
-import { useAuth } from '../context/AuthContext';
-import { checkYouTubeConnection } from '../services/platforms/youtube';
+import { Box, Typography, Paper, Alert, CircularProgress, Button } from '@mui/material';
+import { YouTube, Refresh } from '@mui/icons-material';
+import { getYouTubeMetrics } from '../services/platforms/youtube';
 
 const YouTubeAnalytics = () => {
   console.log("YouTubeAnalytics montou");
   const [loading, setLoading] = useState(true);
-  const [connectionStatus, setConnectionStatus] = useState(null);
+  const [data, setData] = useState(null);
   const [error, setError] = useState(null);
-  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
-    const checkConnection = async () => {
-      try {
-        console.log("Verificando conexão com o YouTube...");
-        const response = await checkYouTubeConnection();
-        console.log("Resposta da verificação de conexão:", response);
-        setConnectionStatus(response);
-        setLoading(false);
-      } catch (err) {
-        console.error("Erro ao verificar conexão:", err);
-        setError("Não foi possível verificar a conexão com o YouTube");
-        setLoading(false);
-      }
-    };
+    fetchYouTubeData();
+  }, []);
 
-    if (isAuthenticated) {
-      checkConnection();
-    } else {
-      setError("Você precisa estar autenticado para acessar esta página");
+  const fetchYouTubeData = async () => {
+    console.log("Chamou fetchYouTubeData");
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log("Antes de chamar getYouTubeMetrics");
+      // Chamada direta para o serviço
+      const response = await getYouTubeMetrics();
+      console.log('YouTube data:', response);
+      
+      if (response && response.success) {
+        setData(response.data);
+      } else {
+        console.error('Resposta sem sucesso:', response);
+        setError(response?.message || 'Erro ao obter dados do YouTube');
+      }
+    } catch (err) {
+      console.error('Erro ao buscar dados do YouTube:', err);
+      setError('Erro ao se comunicar com o servidor: ' + (err.message || 'Erro desconhecido'));
+    } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  };
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const formatNumber = (num) => {
+    if (!num) return '0';
+    return new Intl.NumberFormat('pt-BR').format(num);
+  };
 
-  if (error) {
-    return (
-      <Alert severity="error" sx={{ mt: 2 }}>
-        {error}
-      </Alert>
-    );
-  }
-
-  // Importante: Mesmo que não esteja conectado, vamos tentar mostrar o componente
-  // YouTubeDataTable para que ele possa exibir sua própria mensagem de erro
   return (
     <Paper sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>
-        Análise de Dados do YouTube
-      </Typography>
-      
-      {connectionStatus && !connectionStatus.connected && (
-        <Alert severity="warning" sx={{ mb: 3 }}>
-          Sua conta não está conectada ao YouTube. Os dados podem não ser exibidos corretamente.
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <YouTube color="error" sx={{ mr: 1 }} />
+          <Typography variant="h5">YouTube Analytics</Typography>
+        </Box>
+        <Button
+          startIcon={<Refresh />}
+          onClick={fetchYouTubeData}
+          variant="outlined"
+          size="small"
+          disabled={loading}
+        >
+          Atualizar
+        </Button>
+      </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
         </Alert>
       )}
 
-      {/* Renderiza o YouTubeDataTable sem condição para debug */}
-      <YouTubeDataTable forceRender={true} />
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 10 }}>
+          <CircularProgress />
+        </Box>
+      ) : !data ? (
+        <Alert severity="info">
+          Não foi possível carregar as métricas do YouTube. Verifique se você está conectado à sua conta do YouTube.
+        </Alert>
+      ) : (
+        <Box>
+          <Typography variant="h6" gutterBottom>
+            Dados carregados com sucesso!
+          </Typography>
+          <Typography variant="body1">
+            Canal: {data.channelInfo?.title || 'Informação não disponível'}
+          </Typography>
+          <Typography variant="body1">
+            Inscritos: {formatNumber(data.totalStats?.subscribers)}
+          </Typography>
+          <Typography variant="body1">
+            Visualizações: {formatNumber(data.totalStats?.views)}
+          </Typography>
+          <Typography variant="body1">
+            Vídeos: {formatNumber(data.totalStats?.videos)}
+          </Typography>
+          
+          {/* Podemos expandir isso para mostrar mais dados conforme necessário */}
+          
+          {/* Debug info */}
+          <Box sx={{ mt: 4, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+            <Typography variant="subtitle2" color="textSecondary">
+              Informações de debug:
+            </Typography>
+            <pre style={{ overflow: 'auto', maxHeight: '200px' }}>
+              {JSON.stringify(data, null, 2)}
+            </pre>
+          </Box>
+        </Box>
+      )}
     </Paper>
   );
 };
