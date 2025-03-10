@@ -614,12 +614,37 @@ const getRecentComments = async (maxResults = 10) => {
 // Adicionar método para obter métricas históricas
 const getHistoricalMetrics = async (metrics, dimensions, startDate, endDate) => {
   try {
+    console.log('[YouTube Analytics] Iniciando getHistoricalMetrics');
+    console.log('[YouTube Analytics] Métricas solicitadas:', metrics);
+    console.log('[YouTube Analytics] Dimensões solicitadas:', dimensions);
+    console.log('[YouTube Analytics] Período:', startDate, 'até', endDate);
+    
+    // Verificar credenciais
+    if (!oauth2Client.credentials) {
+      console.error('[YouTube Analytics] Erro: Credenciais não configuradas');
+      throw new Error('Credenciais OAuth2 não configuradas');
+    }
+    
+    console.log('[YouTube Analytics] Escopos do token:', oauth2Client.credentials.scope);
+    
+    // Verificar se o escopo necessário está presente
+    const hasAnalyticsScope = oauth2Client.credentials.scope && 
+      oauth2Client.credentials.scope.includes('https://www.googleapis.com/auth/yt-analytics.readonly');
+    
+    console.log('[YouTube Analytics] Tem escopo de analytics?', hasAnalyticsScope);
+    
+    if (!hasAnalyticsScope) {
+      console.warn('[YouTube Analytics] AVISO: Token não possui escopo de analytics. Reautentique o usuário com os novos escopos.');
+    }
+    
     // Inicializar youtubeAnalytics com a mesma autenticação
+    console.log('[YouTube Analytics] Inicializando cliente youtubeAnalytics');
     const youtubeAnalytics = google.youtubeAnalytics({
       version: 'v2',
-      auth: oauth2Client // usar o mesmo cliente de autenticação
+      auth: oauth2Client
     });
     
+    console.log('[YouTube Analytics] Fazendo requisição à API YouTube Analytics');
     const response = await youtubeAnalytics.reports.query({
       ids: 'channel==MINE',
       startDate: startDate,
@@ -628,9 +653,24 @@ const getHistoricalMetrics = async (metrics, dimensions, startDate, endDate) => 
       dimensions: dimensions.join(','),
     });
     
+    console.log('[YouTube Analytics] Resposta recebida com sucesso:', 
+      response.data && response.data.rows ? `${response.data.rows.length} linhas` : 'Sem dados');
+    
     return response.data;
   } catch (error) {
-    console.error('Erro ao obter métricas históricas:', error);
+    console.error('[YouTube Analytics] ERRO em getHistoricalMetrics:', error);
+    console.error('[YouTube Analytics] Detalhes do erro:', {
+      message: error.message,
+      code: error.code,
+      errors: error.errors,
+      stack: error.stack
+    });
+    
+    // Verificar se é erro de escopo não autorizado
+    if (error.message && error.message.includes('scope')) {
+      console.error('[YouTube Analytics] ERRO DE ESCOPO: O token não possui as permissões necessárias');
+    }
+    
     throw error;
   }
 };

@@ -791,7 +791,19 @@ exports.getMetrics = async (req, res) => {
     let chartData;
     try {
       console.log('[YouTube Metrics] Autenticação configurada para Analytics:', Boolean(tokens.access_token));
-      console.log('[YouTube Metrics] Escopos disponíveis:', tokens.scope);
+      if (tokens.scope) {
+        console.log('[YouTube Metrics] Escopos disponíveis:', tokens.scope);
+        const hasAnalyticsScope = tokens.scope.includes('https://www.googleapis.com/auth/yt-analytics.readonly');
+        console.log('[YouTube Metrics] Tem escopo de analytics?', hasAnalyticsScope);
+        
+        if (!hasAnalyticsScope) {
+          console.warn('[YouTube Metrics] AVISO: O token não tem o escopo necessário para analytics!');
+          console.warn('[YouTube Metrics] O usuário precisa reautenticar com os novos escopos adicionados.');
+          // Podemos adicionar um campo à resposta para informar que o usuário precisa reconectar
+        }
+      } else {
+        console.log('[YouTube Metrics] Informações de escopo não disponíveis');
+      }
       
       const analyticsData = await youtubeService.getHistoricalMetrics(
         ['views', 'likes', 'comments'], 
@@ -810,8 +822,17 @@ exports.getMetrics = async (req, res) => {
         comments: analyticsData.rows.map(row => parseInt(row[3]))
       };
     } catch (analyticsError) {
-      console.error(`[YouTube Metrics] Erro ao obter métricas históricas: ${analyticsError}`);
-      console.error(`[YouTube Metrics] Detalhes do erro:`, analyticsError);
+      console.error(`[YouTube Metrics] Erro ao obter métricas históricas:`, analyticsError);
+      console.error(`[YouTube Metrics] Mensagem de erro:`, analyticsError.message);
+      
+      if (analyticsError.code) {
+        console.error(`[YouTube Metrics] Código de erro:`, analyticsError.code);
+      }
+      
+      if (analyticsError.errors) {
+        console.error(`[YouTube Metrics] Detalhes do erro:`, analyticsError.errors);
+      }
+      
       console.log(`[YouTube Metrics] Caindo para dados simulados como fallback`);
       
       // Manter o código de fallback existente com generateRandomMetrics
@@ -835,6 +856,34 @@ exports.getMetrics = async (req, res) => {
         likes: generateRandomMetrics(totalLikes / 20),
         comments: generateRandomMetrics(totalComments / 10)
       };
+
+      // Tentar gerar gráfico com dados reais disponíveis
+      console.log(`[YouTube Metrics] Tentando gerar gráfico com dados reais disponíveis`);
+
+      // Ordenar vídeos por data de publicação
+      const sortedVideos = [...videosWithStats].sort((a, b) => 
+        new Date(a.publishedAt) - new Date(b.publishedAt)
+      );
+
+      // Extrair datas e métricas para o gráfico
+      const labels = sortedVideos.map(video => {
+        const date = new Date(video.publishedAt);
+        return `${date.toLocaleString('pt-BR', {month: 'short'})} ${date.getDate()}`;
+      });
+
+      const views = sortedVideos.map(video => parseInt(video.statistics.viewCount) || 0);
+      const likes = sortedVideos.map(video => parseInt(video.statistics.likeCount) || 0);
+      const comments = sortedVideos.map(video => parseInt(video.statistics.commentCount) || 0);
+
+      // Usar esses dados para o gráfico (pelo menos são dados reais)
+      chartData = {
+        labels,
+        views,
+        likes,
+        comments
+      };
+
+      console.log(`[YouTube Metrics] Gerados dados de gráfico alternativos usando ${sortedVideos.length} vídeos do canal`);
     }
 
     // Dados completos para retornar
