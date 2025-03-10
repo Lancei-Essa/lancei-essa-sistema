@@ -38,6 +38,21 @@ const YouTubeAnalytics = () => {
     }
   };
 
+  useEffect(() => {
+    if (data && data.videos) {
+      // Verificar se são dados simulados
+      const hasSimulatedData = data.videos.some(video => 
+        typeof video.id === 'string' && video.id.match(/^video\d+$/));
+      
+      if (hasSimulatedData) {
+        console.warn('ALERTA: Dados simulados detectados na resposta!');
+        setError('Atenção: Os dados exibidos são simulados. Por favor, reconecte sua conta para obter dados reais.');
+      } else {
+        console.log('SUCESSO: Usando dados reais do YouTube');
+      }
+    }
+  }, [data]);
+
   const formatNumber = (num) => {
     if (!num) return '0';
     return new Intl.NumberFormat('pt-BR').format(num);
