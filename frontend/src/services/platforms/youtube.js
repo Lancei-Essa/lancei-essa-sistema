@@ -150,61 +150,36 @@ export const getYouTubeChannelStats = async () => {
 
 /**
  * Obtém métricas do YouTube para visualização em gráficos
- * @param {Object} options Opções de filtro
- * @param {string} options.period Período das métricas (30days, 90days, 1year, etc.)
- * @param {string} options.type Tipo de métricas (views, likes, comments, etc.)
+ * @param {boolean} useRealData Determina se deve usar dados reais
  * @returns {Promise<Object>} Dados das métricas para exibição
  */
-export const getYouTubeMetrics = async (options = {}) => {
+export const getYouTubeMetrics = async (useRealData = true) => {
   try {
-    const { period = '30days', type = 'views' } = options;
+    // Determinar qual endpoint usar
+    const endpoint = useRealData 
+      ? '/youtube/metrics/real'  // Endpoint dedicado para dados reais
+      : '/youtube/metrics';      // Endpoint normal (que pode retornar dados simulados)
     
-    console.log('[YouTube] Obtendo métricas atuais...');
-    console.log('[YouTube] URL da requisição:', '/youtube/metrics');
-    console.log('[YouTube] Parâmetros:', { period, type });
+    console.log(`[YouTube API] Solicitando métricas do YouTube de: ${endpoint}`);
+    const response = await api.get(endpoint);
     
-    const response = await api.get('/youtube/metrics', {
-      params: { period, type }
-    });
-    
-    // Adicionando log detalhado da resposta completa
-    console.log('[YouTube] DADOS COMPLETOS:', JSON.stringify(response.data, null, 2));
-    console.log('[YouTube] DADOS COMPLETOS (stringify):', JSON.stringify(response.data, null, 2));
-    
-    console.log('[YouTube] Resposta recebida da API:', response.data);
-    
-    // Verificação adicional para garantir que a resposta tenha a estrutura esperada
-    if (!response.data) {
-      throw new Error('Resposta vazia do servidor');
-    }
-    
-    // Se a resposta não tiver a propriedade 'success', adicioná-la
-    if (response.data.success === undefined) {
-      console.log('[YouTube] Adicionando propriedade success à resposta');
-      response.data = { 
-        success: true, 
-        data: response.data 
-      };
+    // Detectar se dados são simulados
+    if (response.data.success && response.data.data && response.data.data.videos) {
+      const hasSimulatedData = response.data.data.videos.some(video => 
+        typeof video.id === 'string' && video.id.match(/^video\d+$/));
+      
+      if (hasSimulatedData) {
+        console.warn('[YouTube API] ALERTA: Dados simulados detectados!');
+        response.data.isSimulated = true;
+      } else {
+        console.log('[YouTube API] Sucesso: Dados reais recebidos.');
+      }
     }
     
     return response.data;
   } catch (error) {
-    console.error('[YouTube] Erro ao obter métricas:', error);
-    console.error('[YouTube] Detalhes do erro:', error.response || error.message);
-    
-    // Melhorar o objeto de erro para fornecer mais informações
-    const errorObj = {
-      success: false, 
-      message: 'Erro ao obter métricas do YouTube',
-      details: error.message
-    };
-    
-    if (error.response) {
-      errorObj.statusCode = error.response.status;
-      errorObj.serverMessage = error.response.data?.message;
-    }
-    
-    throw errorObj;
+    console.error('[YouTube API] Erro ao obter métricas do YouTube:', error);
+    throw error;
   }
 };
 
