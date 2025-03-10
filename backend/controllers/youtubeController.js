@@ -635,24 +635,35 @@ exports.scheduleVideo = async (req, res) => {
 // Obter métricas atuais do YouTube
 exports.getMetrics = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user.id;
+    console.log(`[YouTube Metrics] Iniciando getMetrics para usuário: ${userId}`);
 
     // Obter token do YouTube com campos protegidos
     const youtubeToken = await YouTubeToken.findOne({ user: userId });
+    console.log(`[YouTube Metrics] Token encontrado: ${youtubeToken ? 'Sim' : 'Não'}`);
+    
     if (!youtubeToken) {
+      console.log(`[YouTube Metrics] Nenhum token do YouTube encontrado para o usuário ${userId}`);
       return res.status(401).json({ 
         success: false, 
         message: 'Você não está autenticado no YouTube' 
       });
     }
 
+    console.log(`[YouTube Metrics] Token válido: ${!youtubeToken.isExpired() ? 'Sim' : 'Não'}`);
+    console.log(`[YouTube Metrics] Token ID do canal: ${youtubeToken.channel_id || 'Não definido'}`);
+
     // Verificar se o token expirou e obter tokens descriptografados
     let tokens;
     if (youtubeToken.isExpired()) {
+      console.log(`[YouTube Metrics] Token expirado, tentando renovar`);
       try {
         const tokenDocument = await YouTubeToken.findById(youtubeToken._id).select('+access_token +refresh_token');
         const decryptedTokens = tokenDocument.getDecryptedTokens();
+        console.log(`[YouTube Metrics] Refresh token obtido: ${Boolean(decryptedTokens.refresh_token)}`);
+        
         const refreshedTokens = await youtubeService.refreshAccessToken(decryptedTokens.refresh_token);
+        console.log(`[YouTube Metrics] Token renovado com sucesso`);
         
         // Atualizar token no banco de dados
         tokenDocument.access_token = refreshedTokens.access_token;
@@ -661,6 +672,7 @@ exports.getMetrics = async (req, res) => {
         tokenDocument.last_refreshed = Date.now();
         
         await tokenDocument.save();
+        console.log(`[YouTube Metrics] Token atualizado no banco de dados`);
         
         tokens = {
           access_token: refreshedTokens.access_token,
@@ -668,7 +680,7 @@ exports.getMetrics = async (req, res) => {
           expiry_date: refreshedTokens.expiry_date
         };
       } catch (refreshError) {
-        console.error('Erro ao renovar token do YouTube:', refreshError);
+        console.error('[YouTube Metrics] ERRO ao renovar token do YouTube:', refreshError);
         return res.status(401).json({ 
           success: false, 
           message: 'Falha ao renovar token do YouTube' 
@@ -676,8 +688,10 @@ exports.getMetrics = async (req, res) => {
       }
     } else {
       // Obter tokens descriptografados
+      console.log(`[YouTube Metrics] Token válido, obtendo credenciais`);
       const tokenWithSecrets = await YouTubeToken.findById(youtubeToken._id).select('+access_token +refresh_token');
       tokens = tokenWithSecrets.getDecryptedTokens();
+      console.log(`[YouTube Metrics] Credenciais obtidas com sucesso`);
       
       // Atualizar último uso
       tokenWithSecrets.last_used = Date.now();
@@ -685,11 +699,17 @@ exports.getMetrics = async (req, res) => {
     }
 
     // Configurar credenciais
+    console.log(`[YouTube Metrics] Configurando credenciais no youtubeService`);
     youtubeService.setCredentials(tokens);
 
     // Obter informações do canal
+    console.log(`[YouTube Metrics] Chamando youtubeService.getChannelInfo()`);
     const channelInfo = await youtubeService.getChannelInfo();
+    console.log(`[YouTube Metrics] Resposta de getChannelInfo:`, 
+      channelInfo && channelInfo.items ? `Itens: ${channelInfo.items.length}` : 'Sem itens');
+    
     if (!channelInfo || !channelInfo.items || channelInfo.items.length === 0) {
+      console.log(`[YouTube Metrics] ERRO: Não foi possível obter informações do canal`);
       return res.status(404).json({ 
         success: false, 
         message: 'Não foi possível obter informações do canal' 
@@ -697,16 +717,33 @@ exports.getMetrics = async (req, res) => {
     }
 
     // Obter lista de vídeos do canal
+    console.log(`[YouTube Metrics] Chamando youtubeService.getChannelVideos()`);
     const videos = await youtubeService.getChannelVideos();
+    console.log(`[YouTube Metrics] Resposta de getChannelVideos:`, 
+      videos && videos.items ? `Vídeos: ${videos.items.length}` : 'Sem vídeos');
+    
     const videosList = videos.items || [];
 
     // Obter estatísticas de cada vídeo
     const videoIds = videosList.map(video => video.id.videoId).join(',');
-    const videoStats = videoIds ? await youtubeService.getVideosStats(videoIds) : { items: [] };
+    console.log(`[YouTube Metrics] IDs de vídeo obtidos: ${videoIds || 'Nenhum'}`);
+    
+    let videoStats = { items: [] };
+    if (videoIds) {
+      console.log(`[YouTube Metrics] Chamando youtubeService.getVideosStats()`);
+      videoStats = await youtubeService.getVideosStats(videoIds);
+      console.log(`[YouTube Metrics] Estatísticas obtidas:`, 
+        videoStats && videoStats.items ? `Itens: ${videoStats.items.length}` : 'Sem estatísticas');
+    } else {
+      console.log(`[YouTube Metrics] Pulando getVideosStats() porque não há IDs de vídeo`);
+    }
 
     // Combinar informações de vídeos com estatísticas
+    console.log(`[YouTube Metrics] Combinando informações de vídeos com estatísticas`);
     const videosWithStats = videosList.map(video => {
       const stats = videoStats.items.find(item => item.id === video.id.videoId);
+      console.log(`[YouTube Metrics] Vídeo ${video.id.videoId}: ${stats ? 'Estatísticas encontradas' : 'Sem estatísticas'}`);
+      
       return {
         id: video.id.videoId,
         title: video.snippet.title,
@@ -718,16 +755,22 @@ exports.getMetrics = async (req, res) => {
     });
 
     // Obter comentários recentes
+    console.log(`[YouTube Metrics] Chamando youtubeService.getRecentComments()`);
     const recentComments = await youtubeService.getRecentComments();
+    console.log(`[YouTube Metrics] Comentários obtidos:`, 
+      recentComments && recentComments.items ? `Comentários: ${recentComments.items.length}` : 'Sem comentários');
 
     // Gerar dados para gráficos
+    console.log(`[YouTube Metrics] Gerando dados para gráficos`);
     const last30Days = Array.from({ length: 6 }, (_, i) => {
       const date = new Date();
       date.setDate(date.getDate() - (i * 5)); // Intervalos de 5 dias
       return date.toISOString().split('T')[0];
     }).reverse();
+    console.log(`[YouTube Metrics] Datas geradas para gráficos:`, last30Days);
 
     // Gerar dados simulados para o gráfico (em uma implementação real, usaríamos dados históricos)
+    console.log(`[YouTube Metrics] ATENÇÃO: Usando função generateRandomMetrics para gerar dados simulados de gráficos`);
     const generateRandomMetrics = (baseValue) => {
       return last30Days.map((_, index) => {
         // Valores crescentes para simular tendência
@@ -736,6 +779,7 @@ exports.getMetrics = async (req, res) => {
     };
 
     // Calcular métricas totais
+    console.log(`[YouTube Metrics] Calculando métricas totais`);
     const channelData = channelInfo.items[0];
     const totalViews = parseInt(channelData.statistics.viewCount) || 0;
     const totalSubscribers = parseInt(channelData.statistics.subscriberCount) || 0;
@@ -746,6 +790,14 @@ exports.getMetrics = async (req, res) => {
       sum + parseInt(video.statistics.likeCount || 0), 0);
     const totalComments = videoStats.items.reduce((sum, video) => 
       sum + parseInt(video.statistics.commentCount || 0), 0);
+
+    console.log(`[YouTube Metrics] Métricas totais calculadas:`, {
+      views: totalViews,
+      subscribers: totalSubscribers,
+      videos: totalVideos,
+      likes: totalLikes,
+      comments: totalComments
+    });
 
     // Dados completos para retornar
     const responseData = {
@@ -777,13 +829,23 @@ exports.getMetrics = async (req, res) => {
       }
     };
 
+    console.log(`[YouTube Metrics] Retornando resposta com sucesso. Dados reais do canal utilizados.`);
     res.json(responseData);
   } catch (error) {
-    console.error('Erro ao obter métricas do YouTube:', error);
+    console.error('[YouTube Metrics] ERRO CRÍTICO ao obter métricas do YouTube:', error);
+    
+    // Verificar se há mensagem específica de erro
+    let errorMessage = 'Erro ao obter métricas do YouTube';
+    if (error.message) {
+      errorMessage += ': ' + error.message;
+    }
+    
+    console.log('[YouTube Metrics] Retornando resposta de erro');
     res.status(500).json({ 
       success: false, 
-      message: 'Erro ao obter métricas do YouTube', 
-      error: error.message 
+      message: errorMessage, 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
