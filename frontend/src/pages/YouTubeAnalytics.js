@@ -8,6 +8,7 @@ const YouTubeAnalytics = () => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
+  const [isSimulatedData, setIsSimulatedData] = useState(false);
 
   useEffect(() => {
     fetchYouTubeData();
@@ -17,15 +18,20 @@ const YouTubeAnalytics = () => {
     console.log("Chamou fetchYouTubeData");
     setLoading(true);
     setError(null);
+    setIsSimulatedData(false);
     
     try {
-      console.log("Antes de chamar getYouTubeMetrics");
-      // Chamada direta para o serviço
-      const response = await getYouTubeMetrics();
+      // Sempre usar dados reais (true)
+      const response = await getYouTubeMetrics(true);
       console.log('YouTube data:', response);
       
       if (response && response.success) {
         setData(response.data);
+        
+        // Verificar se a resposta indica dados simulados
+        if (response.isSimulated) {
+          setIsSimulatedData(true);
+        }
       } else {
         console.error('Resposta sem sucesso:', response);
         setError(response?.message || 'Erro ao obter dados do YouTube');
@@ -38,7 +44,8 @@ const YouTubeAnalytics = () => {
     }
   };
 
-  useEffect(() => {
+  // Função para detectar se os dados são simulados
+  const detectSimulatedData = (data) => {
     if (data && data.videos) {
       // Verificar se são dados simulados
       const hasSimulatedData = data.videos.some(video => 
@@ -46,12 +53,12 @@ const YouTubeAnalytics = () => {
       
       if (hasSimulatedData) {
         console.warn('ALERTA: Dados simulados detectados na resposta!');
-        setError('Atenção: Os dados exibidos são simulados. Por favor, reconecte sua conta para obter dados reais.');
+        setIsSimulatedData(true);
       } else {
         console.log('SUCESSO: Usando dados reais do YouTube');
       }
     }
-  }, [data]);
+  };
 
   const formatNumber = (num) => {
     if (!num) return '0';
@@ -76,6 +83,12 @@ const YouTubeAnalytics = () => {
         </Button>
       </Box>
 
+      {isSimulatedData && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          <strong>Atenção:</strong> Os dados exibidos são simulados. Por favor, reconecte sua conta do YouTube ou verifique se a API está configurada corretamente para obter dados reais.
+        </Alert>
+      )}
+
       {error && (
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
@@ -93,32 +106,54 @@ const YouTubeAnalytics = () => {
       ) : (
         <Box>
           <Typography variant="h6" gutterBottom>
-            Dados carregados com sucesso!
+            Dados do canal: {data.channelInfo?.title || 'Informação não disponível'}
           </Typography>
-          <Typography variant="body1">
-            Canal: {data.channelInfo?.title || 'Informação não disponível'}
-          </Typography>
-          <Typography variant="body1">
-            Inscritos: {formatNumber(data.totalStats?.subscribers)}
-          </Typography>
-          <Typography variant="body1">
-            Visualizações: {formatNumber(data.totalStats?.views)}
-          </Typography>
-          <Typography variant="body1">
-            Vídeos: {formatNumber(data.totalStats?.videos)}
-          </Typography>
-          
-          {/* Podemos expandir isso para mostrar mais dados conforme necessário */}
-          
-          {/* Debug info */}
-          <Box sx={{ mt: 4, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-            <Typography variant="subtitle2" color="textSecondary">
-              Informações de debug:
-            </Typography>
-            <pre style={{ overflow: 'auto', maxHeight: '200px' }}>
-              {JSON.stringify(data, null, 2)}
-            </pre>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mb: 3 }}>
+            <Box>
+              <Typography variant="body2" color="textSecondary">Inscritos</Typography>
+              <Typography variant="h6">{formatNumber(data.totalStats?.subscribers)}</Typography>
+            </Box>
+            <Box>
+              <Typography variant="body2" color="textSecondary">Visualizações</Typography>
+              <Typography variant="h6">{formatNumber(data.totalStats?.views)}</Typography>
+            </Box>
+            <Box>
+              <Typography variant="body2" color="textSecondary">Vídeos</Typography>
+              <Typography variant="h6">{formatNumber(data.totalStats?.videos)}</Typography>
+            </Box>
+            <Box>
+              <Typography variant="body2" color="textSecondary">Likes</Typography>
+              <Typography variant="h6">{formatNumber(data.totalStats?.likes)}</Typography>
+            </Box>
+            <Box>
+              <Typography variant="body2" color="textSecondary">Comentários</Typography>
+              <Typography variant="h6">{formatNumber(data.totalStats?.comments)}</Typography>
+            </Box>
           </Box>
+          
+          {isSimulatedData && (
+            <Box sx={{ my: 3 }}>
+              <Button 
+                variant="contained" 
+                color="primary" 
+                onClick={() => window.location.href = '/settings/youtube'}
+              >
+                Reconectar conta do YouTube
+              </Button>
+            </Box>
+          )}
+          
+          {/* Debug info - apenas visível em desenvolvimento */}
+          {process.env.NODE_ENV === 'development' && (
+            <Box sx={{ mt: 4, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+              <Typography variant="subtitle2" color="textSecondary">
+                Informações de debug:
+              </Typography>
+              <pre style={{ overflow: 'auto', maxHeight: '200px' }}>
+                {JSON.stringify(data, null, 2)}
+              </pre>
+            </Box>
+          )}
         </Box>
       )}
     </Paper>
