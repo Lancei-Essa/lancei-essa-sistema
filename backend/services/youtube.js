@@ -129,7 +129,8 @@ const getAuthUrl = (credentials = null) => {
     const scopes = [
       'https://www.googleapis.com/auth/youtube.upload',
       'https://www.googleapis.com/auth/youtube',
-      'https://www.googleapis.com/auth/youtube.readonly'
+      'https://www.googleapis.com/auth/youtube.readonly',
+      'https://www.googleapis.com/auth/yt-analytics.readonly' // Adicionar este escopo
     ];
     
     console.log('[YouTube Service] Detalhes do cliente OAuth2:', {
@@ -613,7 +614,11 @@ const getRecentComments = async (maxResults = 10) => {
 // Adicionar método para obter métricas históricas
 const getHistoricalMetrics = async (metrics, dimensions, startDate, endDate) => {
   try {
-    const youtubeAnalytics = google.youtubeAnalytics('v2');
+    // Inicializar youtubeAnalytics com a mesma autenticação
+    const youtubeAnalytics = google.youtubeAnalytics({
+      version: 'v2',
+      auth: oauth2Client // usar o mesmo cliente de autenticação
+    });
     
     const response = await youtubeAnalytics.reports.query({
       ids: 'channel==MINE',

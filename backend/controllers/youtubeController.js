@@ -760,7 +760,28 @@ exports.getMetrics = async (req, res) => {
     console.log(`[YouTube Metrics] Comentários obtidos:`, 
       recentComments && recentComments.items ? `Comentários: ${recentComments.items.length}` : 'Sem comentários');
 
-    // Gerar dados para gráficos
+    // Calcular métricas totais ANTES de chamar analytics
+    console.log(`[YouTube Metrics] Calculando métricas totais`);
+    const channelData = channelInfo.items[0];
+    const totalViews = parseInt(channelData.statistics.viewCount) || 0;
+    const totalSubscribers = parseInt(channelData.statistics.subscriberCount) || 0;
+    const totalVideos = parseInt(channelData.statistics.videoCount) || 0;
+
+    // Calcular totais de likes e comentários dos vídeos
+    const totalLikes = videoStats.items.reduce((sum, video) => 
+      sum + parseInt(video.statistics.likeCount || 0), 0);
+    const totalComments = videoStats.items.reduce((sum, video) => 
+      sum + parseInt(video.statistics.commentCount || 0), 0);
+
+    console.log(`[YouTube Metrics] Métricas totais calculadas:`, {
+      views: totalViews,
+      subscribers: totalSubscribers,
+      videos: totalVideos,
+      likes: totalLikes,
+      comments: totalComments
+    });
+
+    // DEPOIS tente obter dados históricos...
     console.log(`[YouTube Metrics] Obtendo dados históricos reais de analytics`);
     const endDate = new Date().toISOString().split('T')[0];
     const startDate = new Date();
@@ -769,12 +790,17 @@ exports.getMetrics = async (req, res) => {
 
     let chartData;
     try {
+      console.log('[YouTube Metrics] Autenticação configurada para Analytics:', Boolean(tokens.access_token));
+      console.log('[YouTube Metrics] Escopos disponíveis:', tokens.scope);
+      
       const analyticsData = await youtubeService.getHistoricalMetrics(
         ['views', 'likes', 'comments'], 
         ['day'], 
         startDateStr, 
         endDate
       );
+      
+      console.log('[YouTube Metrics] Dados de analytics recebidos:', JSON.stringify(analyticsData));
       
       // Processar dados reais para formato do gráfico
       chartData = {
@@ -785,6 +811,7 @@ exports.getMetrics = async (req, res) => {
       };
     } catch (analyticsError) {
       console.error(`[YouTube Metrics] Erro ao obter métricas históricas: ${analyticsError}`);
+      console.error(`[YouTube Metrics] Detalhes do erro:`, analyticsError);
       console.log(`[YouTube Metrics] Caindo para dados simulados como fallback`);
       
       // Manter o código de fallback existente com generateRandomMetrics
@@ -809,27 +836,6 @@ exports.getMetrics = async (req, res) => {
         comments: generateRandomMetrics(totalComments / 10)
       };
     }
-
-    // Calcular métricas totais
-    console.log(`[YouTube Metrics] Calculando métricas totais`);
-    const channelData = channelInfo.items[0];
-    const totalViews = parseInt(channelData.statistics.viewCount) || 0;
-    const totalSubscribers = parseInt(channelData.statistics.subscriberCount) || 0;
-    const totalVideos = parseInt(channelData.statistics.videoCount) || 0;
-
-    // Calcular totais de likes e comentários dos vídeos
-    const totalLikes = videoStats.items.reduce((sum, video) => 
-      sum + parseInt(video.statistics.likeCount || 0), 0);
-    const totalComments = videoStats.items.reduce((sum, video) => 
-      sum + parseInt(video.statistics.commentCount || 0), 0);
-
-    console.log(`[YouTube Metrics] Métricas totais calculadas:`, {
-      views: totalViews,
-      subscribers: totalSubscribers,
-      videos: totalVideos,
-      likes: totalLikes,
-      comments: totalComments
-    });
 
     // Dados completos para retornar
     const responseData = {
