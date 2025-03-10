@@ -761,22 +761,54 @@ exports.getMetrics = async (req, res) => {
       recentComments && recentComments.items ? `Comentários: ${recentComments.items.length}` : 'Sem comentários');
 
     // Gerar dados para gráficos
-    console.log(`[YouTube Metrics] Gerando dados para gráficos`);
-    const last30Days = Array.from({ length: 6 }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (i * 5)); // Intervalos de 5 dias
-      return date.toISOString().split('T')[0];
-    }).reverse();
-    console.log(`[YouTube Metrics] Datas geradas para gráficos:`, last30Days);
+    console.log(`[YouTube Metrics] Obtendo dados históricos reais de analytics`);
+    const endDate = new Date().toISOString().split('T')[0];
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+    const startDateStr = startDate.toISOString().split('T')[0];
 
-    // Gerar dados simulados para o gráfico (em uma implementação real, usaríamos dados históricos)
-    console.log(`[YouTube Metrics] ATENÇÃO: Usando função generateRandomMetrics para gerar dados simulados de gráficos`);
-    const generateRandomMetrics = (baseValue) => {
-      return last30Days.map((_, index) => {
-        // Valores crescentes para simular tendência
-        return Math.floor(baseValue * (1 + (index * 0.15)) * (0.9 + Math.random() * 0.2));
-      });
-    };
+    let chartData;
+    try {
+      const analyticsData = await youtubeService.getHistoricalMetrics(
+        ['views', 'likes', 'comments'], 
+        ['day'], 
+        startDateStr, 
+        endDate
+      );
+      
+      // Processar dados reais para formato do gráfico
+      chartData = {
+        labels: analyticsData.rows.map(row => row[0]), // Datas
+        views: analyticsData.rows.map(row => parseInt(row[1])),
+        likes: analyticsData.rows.map(row => parseInt(row[2])),
+        comments: analyticsData.rows.map(row => parseInt(row[3]))
+      };
+    } catch (analyticsError) {
+      console.error(`[YouTube Metrics] Erro ao obter métricas históricas: ${analyticsError}`);
+      console.log(`[YouTube Metrics] Caindo para dados simulados como fallback`);
+      
+      // Manter o código de fallback existente com generateRandomMetrics
+      const last30Days = Array.from({ length: 6 }, (_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() - (i * 5)); // Intervalos de 5 dias
+        return date.toISOString().split('T')[0];
+      }).reverse();
+      console.log(`[YouTube Metrics] Datas geradas para gráficos:`, last30Days);
+
+      const generateRandomMetrics = (baseValue) => {
+        return last30Days.map((_, index) => {
+          // Valores crescentes para simular tendência
+          return Math.floor(baseValue * (1 + (index * 0.15)) * (0.9 + Math.random() * 0.2));
+        });
+      };
+
+      chartData = {
+        labels: last30Days,
+        views: generateRandomMetrics(totalViews / 100),
+        likes: generateRandomMetrics(totalLikes / 20),
+        comments: generateRandomMetrics(totalComments / 10)
+      };
+    }
 
     // Calcular métricas totais
     console.log(`[YouTube Metrics] Calculando métricas totais`);
@@ -820,12 +852,7 @@ exports.getMetrics = async (req, res) => {
         },
         videos: videosWithStats,
         recentComments: recentComments.items || [],
-        chartData: {
-          labels: last30Days,
-          views: generateRandomMetrics(totalViews / 100),
-          likes: generateRandomMetrics(totalLikes / 20),
-          comments: generateRandomMetrics(totalComments / 10)
-        }
+        chartData
       }
     };
 

@@ -610,6 +610,26 @@ const getRecentComments = async (maxResults = 10) => {
   }
 };
 
+// Adicionar método para obter métricas históricas
+const getHistoricalMetrics = async (metrics, dimensions, startDate, endDate) => {
+  try {
+    const youtubeAnalytics = google.youtubeAnalytics('v2');
+    
+    const response = await youtubeAnalytics.reports.query({
+      ids: 'channel==MINE',
+      startDate: startDate,
+      endDate: endDate,
+      metrics: metrics.join(','),
+      dimensions: dimensions.join(','),
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao obter métricas históricas:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   getAuthUrl,
   getTokensFromCode,
@@ -624,5 +644,6 @@ module.exports = {
   getChannelMetrics,
   getChannelVideos,
   getVideosStats,
-  getRecentComments
+  getRecentComments,
+  getHistoricalMetrics
 };
