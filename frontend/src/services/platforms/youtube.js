@@ -169,6 +169,7 @@ export const getYouTubeMetrics = async (options = {}) => {
     
     // Adicionando log detalhado da resposta completa
     console.log('[YouTube] DADOS COMPLETOS:', JSON.stringify(response.data, null, 2));
+    console.log('[YouTube] DADOS COMPLETOS (stringify):', JSON.stringify(response.data, null, 2));
     
     console.log('[YouTube] Resposta recebida da API:', response.data);
     
