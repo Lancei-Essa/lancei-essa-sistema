@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/user');
+const User = require('../models/User');
 
 exports.protect = async (req, res, next) => {
   let token;
@@ -27,9 +27,9 @@ exports.protect = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log('Token decodificado:', decoded);
 
-    req.user = await User.findById(decoded.id).select('-password');
+    req.User = await User.findById(decoded.id).select('-password');
     
-    if (!req.user) {
+    if (!req.User) {
       console.log('Usuário não encontrado');
       return res.status(401).json({
         success: false,
@@ -37,7 +37,7 @@ exports.protect = async (req, res, next) => {
       });
     }
 
-    console.log('Usuário autenticado:', req.user);
+    console.log('Usuário autenticado:', req.User);
     next();
   } catch (err) {
     console.error('Erro na autenticação:', err);
@@ -51,10 +51,10 @@ exports.protect = async (req, res, next) => {
 
 exports.authorize = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
+    if (!roles.includes(req.User.role)) {
       return res.status(403).json({
         success: false,
-        message: `Usuário com papel ${req.user.role} não está autorizado a acessar esta rota`
+        message: `Usuário com papel ${req.User.role} não está autorizado a acessar esta rota`
       });
     }
     next();
