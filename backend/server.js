@@ -8,6 +8,7 @@ const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const youtubeController = require('./controllers/youtubeController'); // Importar o controlador real
+const User = require('./models/User'); // Importar o modelo User
 
 // Simular serviços
 const publicationScheduler = { 
@@ -162,7 +163,7 @@ const startServer = async () => {
         };
         
         // Adicionar ao "banco de dados" em memória
-        memoryDb.User.push(newUser);
+        memoryDb.Users.push(newUser);
         
         // Responder com dados do usuário (sem a senha)
         res.status(201).json({
@@ -177,9 +178,6 @@ const startServer = async () => {
         });
       } else {
         // Usar MongoDB real
-        // Importar modelo User quando usando banco real
-        const User = require('./models/User');
-        
         // Verificar se o usuário já existe
         const UserExists = await User.findOne({ email });
         
@@ -191,22 +189,22 @@ const startServer = async () => {
         }
         
         // Criar novo usuário no MongoDB
-        const User = await User.create({
+        const newUser = await User.create({
           name,
           email,
           password, // O modelo User já faz o hash da senha
           role: role || 'viewer'
         });
         
-        if (User) {
+        if (newUser) {
           res.status(201).json({
             success: true,
             data: {
-              _id: User._id,
-              name: User.name,
-              email: User.email,
-              role: User.role,
-              token: generateToken(User._id)
+              _id: newUser._id,
+              name: newUser.name,
+              email: newUser.email,
+              role: newUser.role,
+              token: generateToken(newUser._id)
             }
           });
         } else {
@@ -233,15 +231,15 @@ const startServer = async () => {
       
       if (usingMemoryDb) {
         // Usar banco em memória
-        const User = memoryDb.Users.find(u => u.email === email);
+        const user = memoryDb.Users.find(u => u.email === email);
         
-        if (User && await bcrypt.compare(password, User.password)) {
+        if (user && await bcrypt.compare(password, user.password)) {
           // Usuário encontrado e senha correta
           
           // Inicializar tokens do usuário (se existirem)
           try {
-            await tokenRefresher.initUserTokens(User._id);
-            console.log(`Tokens inicializados para usuário ${User._id}`);
+            await tokenRefresher.initUserTokens(user._id);
+            console.log(`Tokens inicializados para usuário ${user._id}`);
           } catch (tokenError) {
             console.warn('Erro ao inicializar tokens:', tokenError.message);
             // Continuar mesmo com erro na inicialização dos tokens
@@ -250,11 +248,11 @@ const startServer = async () => {
           res.json({
             success: true,
             data: {
-              _id: User._id,
-              name: User.name,
-              email: User.email,
-              role: User.role,
-              token: generateToken(User._id)
+              _id: user._id,
+              name: user.name,
+              email: user.email,
+              role: user.role,
+              token: generateToken(user._id)
             }
           });
         } else {
@@ -266,18 +264,16 @@ const startServer = async () => {
         }
       } else {
         // Usar MongoDB real
-        const User = require('./models/User');
-        
         // Buscar usuário no MongoDB
-        const User = await User.findOne({ email });
+        const user = await User.findOne({ email });
         
-        if (User && await bcrypt.compare(password, User.password)) {
+        if (user && await bcrypt.compare(password, user.password)) {
           // Usuário encontrado e senha correta
           
           // Inicializar tokens do usuário (se existirem)
           try {
-            await tokenRefresher.initUserTokens(User._id);
-            console.log(`Tokens inicializados para usuário ${User._id}`);
+            await tokenRefresher.initUserTokens(user._id);
+            console.log(`Tokens inicializados para usuário ${user._id}`);
           } catch (tokenError) {
             console.warn('Erro ao inicializar tokens:', tokenError.message);
             // Continuar mesmo com erro na inicialização dos tokens
@@ -286,11 +282,11 @@ const startServer = async () => {
           res.json({
             success: true,
             data: {
-              _id: User._id,
-              name: User.name,
-              email: User.email,
-              role: User.role,
-              token: generateToken(User._id)
+              _id: user._id,
+              name: user.name,
+              email: user.email,
+              role: user.role,
+              token: generateToken(user._id)
             }
           });
         } else {
@@ -316,11 +312,11 @@ const startServer = async () => {
     try {
       if (usingMemoryDb) {
         // Usar banco em memória
-        const User = memoryDb.Users.find(u => u._id === req.User._id);
+        const user = memoryDb.Users.find(u => u._id === req.User._id);
         
-        if (User) {
+        if (user) {
           // Omitir a senha
-          const { password, ...UserWithoutPassword } = User;
+          const { password, ...UserWithoutPassword } = user;
           res.json({
             success: true,
             data: UserWithoutPassword
@@ -333,14 +329,12 @@ const startServer = async () => {
         }
       } else {
         // Usar MongoDB real
-        const User = require('./models/User');
+        const user = await User.findById(req.User._id).select('-password');
         
-        const User = await User.findById(req.User._id).select('-password');
-        
-        if (User) {
+        if (user) {
           res.json({
             success: true,
-            data: User
+            data: user
           });
         } else {
           res.status(404).json({
@@ -708,11 +702,10 @@ const startServer = async () => {
         return 'company_' + Date.now();
       } else {
         // Buscar do banco de dados real
-        const User = require('./models/User');
-        const User = await User.findById(UserId);
+        const user = await User.findById(UserId);
         
-        if (User && User.company) {
-          return User.company;
+        if (user && user.company) {
+          return user.company;
         } else {
           // Verificar se existe alguma empresa no sistema
           const Company = require('./models/Company');
@@ -779,7 +772,6 @@ const startServer = async () => {
       // Atualizar status de conexão do usuário
       if (!usingMemoryDb) {
         try {
-          const User = require('./models/User');
           await User.findByIdAndUpdate(UserId, {
             'socialConnections.youtube.connected': true,
             'socialConnections.youtube.lastConnected': Date.now()
@@ -1079,7 +1071,6 @@ const startServer = async () => {
       // Atualizar o status de conexão do usuário
       if (!usingMemoryDb) {
         try {
-          const User = require('./models/User');
           await User.findByIdAndUpdate(UserId, {
             'socialConnections.youtube.connected': true,
             'socialConnections.youtube.lastConnected': Date.now(),
