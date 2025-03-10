@@ -75,7 +75,17 @@ router.post('/videos/:videoId/schedule', youtubeController.scheduleVideo);
 router.get('/channel/stats', youtubeController.getChannelStats);
 
 // Rota para métricas usando o controller
-router.get('/metrics', youtubeController.getMetrics);
+router.get('/metrics', (req, res, next) => {
+  console.log('[API Router] Chamando youtubeController.getMetrics diretamente');
+  console.log('[API Router] Requisição recebida em /youtube/metrics');
+  
+  // Verificar se é uma requisição de dados simulados
+  const forceReal = true; // Forçar dados reais
+  req.forceRealData = forceReal;
+  
+  // Chamar o controlador específico
+  return youtubeController.getMetrics(req, res, next);
+});
 
 // Rota temporária para histórico de métricas (implementação direta sem o controlador)
 router.get('/metrics/history', (req, res) => {
