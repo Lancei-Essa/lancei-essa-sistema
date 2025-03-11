@@ -130,7 +130,10 @@ const getAuthUrl = (credentials = null) => {
       'https://www.googleapis.com/auth/youtube.upload',
       'https://www.googleapis.com/auth/youtube',
       'https://www.googleapis.com/auth/youtube.readonly',
-      'https://www.googleapis.com/auth/yt-analytics.readonly' // Adicionar este escopo
+      'https://www.googleapis.com/auth/yt-analytics.readonly',
+      'https://www.googleapis.com/auth/youtube.force-ssl',
+      'https://www.googleapis.com/auth/youtubepartner',
+      'https://www.googleapis.com/auth/youtubepartner-channel-audit'
     ];
     
     console.log('[YouTube Service] Detalhes do cliente OAuth2:', {

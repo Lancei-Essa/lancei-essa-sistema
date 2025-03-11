@@ -163,23 +163,44 @@ export const getYouTubeMetrics = async (useRealData = true) => {
     console.log(`[YouTube API] Solicitando métricas do YouTube de: ${endpoint}`);
     const response = await api.get(endpoint);
     
-    // Detectar se dados são simulados
-    if (response.data.success && response.data.data && response.data.data.videos) {
-      const hasSimulatedData = response.data.data.videos.some(video => 
-        typeof video.id === 'string' && video.id.match(/^video\d+$/));
-      
-      if (hasSimulatedData) {
-        console.warn('[YouTube API] ALERTA: Dados simulados detectados!');
-        response.data.isSimulated = true;
-      } else {
-        console.log('[YouTube API] Sucesso: Dados reais recebidos.');
-      }
+    // Verificar se há dados válidos na resposta
+    if (response.data.success && response.data.data) {
+      console.log('[YouTube API] Sucesso: Dados recebidos do YouTube.');
+    } else {
+      console.warn('[YouTube API] Aviso: Resposta sem dados completos do YouTube.');
     }
     
     return response.data;
   } catch (error) {
     console.error('[YouTube API] Erro ao obter métricas do YouTube:', error);
-    throw error;
+    
+    // Formatação melhorada do erro
+    let errorMessage = 'Erro ao obter métricas do YouTube';
+    let detailedError = error.message;
+    
+    if (error.response) {
+      const status = error.response.status;
+      const data = error.response.data;
+      
+      if (status === 401) {
+        errorMessage = 'Autenticação necessária';
+        detailedError = 'Por favor, reconecte sua conta do YouTube';
+      } else if (status === 403) {
+        errorMessage = 'Permissões insuficientes';
+        detailedError = 'Por favor, reconecte sua conta e conceda todas as permissões solicitadas';
+      } else if (status === 500) {
+        errorMessage = 'Erro no servidor';
+        detailedError = data.message || 'Ocorreu um erro interno no servidor';
+      }
+    }
+    
+    throw {
+      success: false,
+      message: errorMessage,
+      detailedError: detailedError,
+      needReconnect: error.response?.status === 401 || error.response?.status === 403,
+      originalError: error.response?.data || error
+    };
   }
 };
 

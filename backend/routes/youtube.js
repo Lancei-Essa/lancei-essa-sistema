@@ -129,6 +129,87 @@ router.get('/metrics/history', (req, res) => {
   });
 });
 
+// Adicione um endpoint de teste para API do YouTube
+router.get('/test-analytics', protect, async (req, res) => {
+  try {
+    // Obter token de autenticação
+    const YouTubeToken = require('../models/YouTubeToken');
+    const youtubeToken = await YouTubeToken.findOne({ user: req.user.id })
+      .select('+access_token +refresh_token');
+    
+    if (!youtubeToken) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token do YouTube não encontrado'
+      });
+    }
+    
+    // Obter tokens descriptografados
+    const tokens = youtubeToken.getDecryptedTokens();
+    
+    // Configurar cliente
+    youtubeService.setCredentials({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expiry_date: tokens.expiry_date
+    });
+    
+    // Testar cada função separadamente
+    const testResults = {
+      getChannelInfo: null,
+      getChannelVideos: null,
+      getVideosStats: null,
+      getRecentComments: null
+    };
+    
+    // Testar getChannelInfo
+    try {
+      const channelInfo = await youtubeService.getChannelInfo();
+      testResults.getChannelInfo = {
+        success: true,
+        data: channelInfo
+      };
+    } catch (error) {
+      testResults.getChannelInfo = {
+        success: false,
+        error: error.message
+      };
+    }
+    
+    // Testar getChannelVideos
+    try {
+      const videos = await youtubeService.getChannelVideos(5);
+      testResults.getChannelVideos = {
+        success: true,
+        count: videos.items ? videos.items.length : 0,
+        videoIds: videos.items ? videos.items.map(video => video.id.videoId) : []
+      };
+    } catch (error) {
+      testResults.getChannelVideos = {
+        success: false,
+        error: error.message
+      };
+    }
+    
+    // Retornar resultados dos testes
+    res.json({
+      success: true,
+      results: testResults,
+      tokenStatus: {
+        valid: !youtubeToken.isExpired(),
+        expiresAt: new Date(tokens.expiry_date).toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('Erro no teste de analytics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro no teste de analytics',
+      error: error.message
+    });
+  }
+});
+
 // Adicione esta rota para verificar variáveis de ambiente com detalhes adicionais
 router.get('/env-debug', async (req, res) => {
   // Informações de ambiente

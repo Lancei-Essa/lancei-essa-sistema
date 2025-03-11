@@ -8,7 +8,7 @@ const YouTubeAnalytics = () => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
-  const [isSimulatedData, setIsSimulatedData] = useState(false);
+  const [noDataAvailable, setNoDataAvailable] = useState(false);
 
   useEffect(() => {
     fetchYouTubeData();
@@ -18,7 +18,7 @@ const YouTubeAnalytics = () => {
     console.log("Chamou fetchYouTubeData");
     setLoading(true);
     setError(null);
-    setIsSimulatedData(false);
+    setNoDataAvailable(false);
     
     try {
       // Sempre usar dados reais (true)
@@ -28,9 +28,9 @@ const YouTubeAnalytics = () => {
       if (response && response.success) {
         setData(response.data);
         
-        // Verificar se a resposta indica dados simulados
-        if (response.isSimulated) {
-          setIsSimulatedData(true);
+        // Verificar se há dados válidos
+        if (!verifyDataValidity(response.data)) {
+          setNoDataAvailable(true);
         }
       } else {
         console.error('Resposta sem sucesso:', response);
@@ -44,19 +44,14 @@ const YouTubeAnalytics = () => {
     }
   };
 
-  // Função para detectar se os dados são simulados
-  const detectSimulatedData = (data) => {
-    if (data && data.videos) {
-      // Verificar se são dados simulados
-      const hasSimulatedData = data.videos.some(video => 
-        typeof video.id === 'string' && video.id.match(/^video\d+$/));
-      
-      if (hasSimulatedData) {
-        console.warn('ALERTA: Dados simulados detectados na resposta!');
-        setIsSimulatedData(true);
-      } else {
-        console.log('SUCESSO: Usando dados reais do YouTube');
-      }
+  // Função para verificar a validade dos dados
+  const verifyDataValidity = (data) => {
+    if (data && data.videos && data.videos.length > 0) {
+      console.log('SUCESSO: Dados válidos do YouTube recebidos');
+      return true;
+    } else {
+      console.warn('AVISO: Dados incompletos ou vazios do YouTube');
+      return false;
     }
   };
 
@@ -83,9 +78,9 @@ const YouTubeAnalytics = () => {
         </Button>
       </Box>
 
-      {isSimulatedData && (
+      {noDataAvailable && (
         <Alert severity="warning" sx={{ mb: 3 }}>
-          <strong>Atenção:</strong> Os dados exibidos são simulados. Por favor, reconecte sua conta do YouTube ou verifique se a API está configurada corretamente para obter dados reais.
+          <strong>Atenção:</strong> Não há dados suficientes no seu canal do YouTube. Pode ser necessário ter vídeos publicados para visualizar métricas completas.
         </Alert>
       )}
 
@@ -131,14 +126,14 @@ const YouTubeAnalytics = () => {
             </Box>
           </Box>
           
-          {isSimulatedData && (
+          {noDataAvailable && (
             <Box sx={{ my: 3 }}>
               <Button 
                 variant="contained" 
                 color="primary" 
                 onClick={() => window.location.href = '/settings/youtube'}
               >
-                Reconectar conta do YouTube
+                Verificar conexão com YouTube
               </Button>
             </Box>
           )}

@@ -3,7 +3,28 @@
 // e fornece apenas funcionalidades básicas de autenticação para teste
 
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const cors = require('cors');
+
+// Configurar logger de erros detalhados
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection:', reason);
+  
+  // Gravar em arquivo para análise posterior
+  const errorLog = `[${new Date().toISOString()}] Unhandled Rejection:\n${reason.stack || reason}\n\n`;
+  fs.appendFileSync(path.join(__dirname, 'error.log'), errorLog);
+});
+
+// Capturar exceções não tratadas
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  
+  // Gravar em arquivo para análise posterior
+  const errorLog = `[${new Date().toISOString()}] Uncaught Exception:\n${error.stack || error}\n\n`;
+  fs.appendFileSync(path.join(__dirname, 'error.log'), errorLog);
+});
+
 const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
