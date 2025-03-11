@@ -126,15 +126,16 @@ const getAuthUrl = (credentials = null) => {
     
     console.log('[YouTube Service] Gerando URL com escopos');
     
+    // Escopos essenciais para funcionalidade completa do YouTube
     const scopes = [
       'https://www.googleapis.com/auth/youtube.upload',
       'https://www.googleapis.com/auth/youtube',
       'https://www.googleapis.com/auth/youtube.readonly',
-      'https://www.googleapis.com/auth/yt-analytics.readonly',
-      'https://www.googleapis.com/auth/youtube.force-ssl',
-      'https://www.googleapis.com/auth/youtubepartner',
-      'https://www.googleapis.com/auth/youtubepartner-channel-audit'
+      'https://www.googleapis.com/auth/yt-analytics.readonly', // Crucial para métricas e analytics
+      'https://www.googleapis.com/auth/youtube.force-ssl'
     ];
+    
+    console.log('[YouTube Service] Escopos solicitados:', scopes.join(', '));
     
     console.log('[YouTube Service] Detalhes do cliente OAuth2:', {
       clientId: Boolean(client._clientId),

@@ -635,6 +635,15 @@ exports.scheduleVideo = async (req, res) => {
 // Obter métricas atuais do YouTube
 exports.getMetrics = async (req, res) => {
   try {
+    // Verificar se o usuário está autenticado e tem ID
+    if (!req || !req.user || !req.user.id) {
+      console.error('[YouTube Metrics] Erro: Usuário não autenticado ou ID não encontrado');
+      return res.status(401).json({
+        success: false,
+        message: 'Usuário não autenticado ou ID não encontrado'
+      });
+    }
+
     // Registrar início da operação
     console.log(`[YouTube Metrics] Iniciando getMetrics para usuário: ${req.user.id}`);
 

@@ -123,6 +123,43 @@ const YouTubeAnalytics = () => {
     return new Intl.NumberFormat('pt-BR').format(num);
   };
 
+  // Função para forçar reconexão com YouTube (usado em casos de problemas extremos)
+  const forceReconnect = async () => {
+    if (!confirm('Isso irá remover a conexão atual com o YouTube e forçar uma nova autenticação com todos os escopos necessários. Deseja continuar?')) {
+      return;
+    }
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Obter ID do usuário atual
+      const storedUser = localStorage.getItem('user');
+      const userData = storedUser ? JSON.parse(storedUser) : null;
+      const userId = userData?._id;
+      
+      if (!userId) {
+        setError('Não foi possível identificar o usuário atual');
+        return;
+      }
+      
+      // Chamar endpoint de reconexão forçada
+      const response = await fetch(`https://lancei-essa-sistema.onrender.com/api/youtube/force-reconnect?userId=${userId}`);
+      const data = await response.json();
+      
+      if (data.success && data.authUrl) {
+        // Abrir URL de autenticação em nova janela
+        window.location.href = data.authUrl;
+      } else {
+        setError(`Erro na reconexão: ${data.message || 'Resposta inválida do servidor'}`);
+      }
+    } catch (err) {
+      setError(`Erro ao forçar reconexão: ${err.message || 'Erro desconhecido'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Paper sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
@@ -130,15 +167,27 @@ const YouTubeAnalytics = () => {
           <YouTube color="error" sx={{ mr: 1 }} />
           <Typography variant="h5">YouTube Analytics</Typography>
         </Box>
-        <Button
-          startIcon={<Refresh />}
-          onClick={fetchYouTubeData}
-          variant="outlined"
-          size="small"
-          disabled={loading}
-        >
-          Atualizar
-        </Button>
+        <Box>
+          <Button
+            startIcon={<Refresh />}
+            onClick={fetchYouTubeData}
+            variant="outlined"
+            size="small"
+            disabled={loading}
+            sx={{ mr: 1 }}
+          >
+            Atualizar
+          </Button>
+          <Button
+            color="warning"
+            size="small"
+            onClick={forceReconnect}
+            disabled={loading}
+            title="Use apenas se estiver tendo problemas persistentes com a integração"
+          >
+            Forçar Reconexão
+          </Button>
+        </Box>
       </Box>
 
       {noDataAvailable && (
@@ -168,6 +217,11 @@ const YouTubeAnalytics = () => {
             <Error sx={{ mr: 1 }} />
             <Typography>{error}</Typography>
           </Box>
+          
+          <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
+            Pode estar faltando permissões na conexão com o YouTube ou o canal não possui dados suficientes.
+            Tente usar o botão "Forçar Reconexão" acima e certifique-se de aceitar TODAS as permissões solicitadas.
+          </Typography>
           
           {detailedError && (
             <Collapse in={showErrorDetails}>

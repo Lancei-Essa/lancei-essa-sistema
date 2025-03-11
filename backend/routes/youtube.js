@@ -300,6 +300,47 @@ router.get('/test-analytics', protect, async (req, res) => {
   }
 });
 
+// Rota simples para forçar reconexão (sem autenticação, para facilitar uso em caso de problemas)
+router.get('/force-reconnect', async (req, res) => {
+  try {
+    // Token para remover (recebido via query)
+    const userId = req.query.userId;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de usuário não fornecido'
+      });
+    }
+    
+    console.log(`[YouTube] Forçando reconexão para o usuário: ${userId}`);
+    
+    // Remover token existente
+    const YouTubeToken = require('../models/YouTubeToken');
+    const deleteResult = await YouTubeToken.deleteOne({ user: userId });
+    
+    console.log(`[YouTube] Resultado da remoção de token:`, deleteResult);
+    
+    // Gerar nova URL de autenticação
+    const authUrl = youtubeService.getAuthUrl();
+    
+    // Retornar resultado
+    return res.json({
+      success: true,
+      message: 'Token removido com sucesso. Use a URL abaixo para reconectar:',
+      authUrl,
+      deleteResult
+    });
+  } catch (error) {
+    console.error('[YouTube] Erro na reconexão forçada:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro ao forçar reconexão',
+      error: error.message
+    });
+  }
+});
+
 // Adicione esta rota para verificar variáveis de ambiente com detalhes adicionais
 router.get('/env-debug', async (req, res) => {
   // Informações de ambiente
