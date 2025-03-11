@@ -129,6 +129,96 @@ router.get('/metrics/history', (req, res) => {
   });
 });
 
+// Endpoint para verificar os escopos do token atual
+router.get('/check-scopes', protect, async (req, res) => {
+  try {
+    // Obter token do YouTube com campos protegidos
+    const YouTubeToken = require('../models/YouTubeToken');
+    const youtubeToken = await YouTubeToken.findOne({ user: req.user.id })
+      .select('+access_token +refresh_token');
+    
+    if (!youtubeToken) {
+      return res.status(401).json({
+        success: false,
+        message: 'Você não está autenticado no YouTube'
+      });
+    }
+    
+    // Obter tokens descriptografados
+    const tokens = youtubeToken.getDecryptedTokens();
+    
+    // Verificar status e escopos do token
+    const now = Date.now();
+    const expiryDate = tokens.expiry_date;
+    const isExpired = now >= expiryDate;
+    
+    // Escopos necessários para funcionalidade completa
+    const requiredScopes = [
+      'https://www.googleapis.com/auth/youtube',
+      'https://www.googleapis.com/auth/youtube.readonly',
+      'https://www.googleapis.com/auth/yt-analytics.readonly',
+    ];
+    
+    // Verificar quais escopos estão presentes no token
+    const tokenScopes = tokens.scope ? tokens.scope.split(' ') : [];
+    const presentScopes = {};
+    requiredScopes.forEach(scope => {
+      presentScopes[scope] = tokenScopes.includes(scope);
+    });
+    
+    // Determinar se todos os escopos necessários estão presentes
+    const hasMissingScopes = requiredScopes.some(scope => !presentScopes[scope]);
+    
+    res.json({
+      success: true,
+      tokenStatus: {
+        valid: !isExpired,
+        expiresAt: new Date(expiryDate).toISOString(),
+        isExpired: isExpired,
+        channel_id: youtubeToken.channel_id || null,
+      },
+      scopeInfo: {
+        allScopesPresent: !hasMissingScopes,
+        scopes: presentScopes,
+        allScopes: tokenScopes
+      },
+      needReconnect: isExpired || hasMissingScopes
+    });
+  } catch (error) {
+    console.error('[YouTube] Erro ao verificar escopos:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao verificar escopos do token',
+      error: error.message
+    });
+  }
+});
+
+// Endpoint para forçar reconexão com novos escopos
+router.get('/reconnect', protect, async (req, res) => {
+  try {
+    // Forçar desconexão removendo o token atual
+    const YouTubeToken = require('../models/YouTubeToken');
+    await YouTubeToken.deleteOne({ user: req.user.id });
+    
+    // Gerar nova URL de autenticação com todos os escopos necessários
+    const authUrl = youtubeService.getAuthUrl(null);
+    
+    res.json({
+      success: true,
+      message: 'Token removido. Use a URL abaixo para reconectar com todos os escopos necessários.',
+      authUrl
+    });
+  } catch (error) {
+    console.error('[YouTube] Erro ao forçar reconexão:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao forçar reconexão com YouTube',
+      error: error.message
+    });
+  }
+});
+
 // Adicione um endpoint de teste para API do YouTube
 router.get('/test-analytics', protect, async (req, res) => {
   try {
