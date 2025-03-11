@@ -125,7 +125,8 @@ const YouTubeAnalytics = () => {
 
   // Função para forçar reconexão com YouTube (usado em casos de problemas extremos)
   const forceReconnect = async () => {
-    if (!confirm('Isso irá remover a conexão atual com o YouTube e forçar uma nova autenticação com todos os escopos necessários. Deseja continuar?')) {
+    // Usando uma abordagem compatível com ESLint em vez de confirm global
+    if (!window.confirm('Isso irá remover a conexão atual com o YouTube e forçar uma nova autenticação com todos os escopos necessários. Deseja continuar?')) {
       return;
     }
     
