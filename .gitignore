@@ -44,4 +44,4 @@ yarn-error.log*
 
 # Arquivos específicos do sistema
 .DS_Store
-Thumbs.db
+Thumbs.dbyoutube_tokens.json

@@ -1,7 +1,7 @@
 services:
   # Backend API Service
   - type: web
-    name: lancei-essa-api
+    name: lancei-essa-sistema
     env: node
     rootDir: backend
     buildCommand: npm install
@@ -12,21 +12,23 @@ services:
       - key: PORT
         value: 5000
       - key: API_BASE_URL
-        value: https://lancei-essa-api.onrender.com
+        value: https://lancei-essa-sistema.onrender.com
       - key: MONGODB_URI
         sync: false
       - key: JWT_SECRET
         sync: false
-      # Não precisamos mais definir esses valores pois usamos método desktop para autenticação
-      - key: YOUTUBE_EMERGENCY_MODE
-        value: "true"
-      # Mantendo esses valores como valores vazios para compatibilidade, mas não são usados
+      - key: TOKEN_ENCRYPTION_KEY
+        sync: false
+      # YouTube API credentials
       - key: YOUTUBE_CLIENT_ID
-        value: ""
+        value: 1035705950747-7ufvkqo5iijci818aucg1ragkgjgbeel.apps.googleusercontent.com
       - key: YOUTUBE_CLIENT_SECRET
-        value: ""
+        value: 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
       - key: YOUTUBE_REDIRECT_URI
-        value: ""
+        value: https://lancei-essa-sistema.onrender.com/api/youtube/oauth2callback
+      - key: YOUTUBE_API_KEY
+        value: AIzaSyBM8B04URwJrCj_N1pO85FqXQs57CwnMoE
+      # Outras APIs sociais
       - key: TWITTER_API_KEY
         sync: false
       - key: TWITTER_API_SECRET
@@ -52,7 +54,7 @@ services:
     
   # Frontend Service
   - type: web
-    name: lancei-essa-frontend
+    name: lancei-essa-sistema-front
     env: node
     rootDir: frontend
     buildCommand: npm install && npm run build
@@ -61,7 +63,4 @@ services:
       - key: NODE_ENV
         value: production
       - key: REACT_APP_API_URL
-        fromService:
-          name: lancei-essa-api
-          type: web
-          property: url
+        value: https://lancei-essa-sistema.onrender.com

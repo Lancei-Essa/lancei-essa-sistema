@@ -7,8 +7,6 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const youtubeController = require('./controllers/youtubeController'); // Importar o controlador real
-const User = require('./models/User'); // Importar o modelo User
 
 // Simular serviços
 const publicationScheduler = { 
@@ -43,9 +41,9 @@ const connectDB = require('./config/db');
 
 // Ainda mantemos um banco em memória como fallback
 const memoryDb = {
-  Users: [
+  users: [
     {
-      _id: 'User123',
+      _id: 'user123',
       name: 'Admin',
       email: 'admin@example.com',
       password: '$2a$10$XQaEqjLECXDH.xln9yNBXe4URuNB7j2LHu4gd2QoAhqtL3yqO99fS', // admin123
@@ -83,6 +81,11 @@ const startServer = async () => {
     dbConnected = true; // para continuar inicialização do servidor
   }
 
+  // Rotas básicas
+  app.get('/', (req, res) => {
+    res.send('API da Lancei Essa funcionando em modo de desenvolvimento!');
+  });
+
   // ===== IMPLEMENTAÇÃO DIRETA DAS ROTAS PRINCIPAIS =====
   // Em vez de importar as rotas reais, que podem ter dependências problemáticas, 
   // implementamos apenas as rotas essenciais para autenticação diretamente aqui
@@ -103,35 +106,12 @@ const startServer = async () => {
       }
       
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'chave-secreta-desenvolvimento');
-      req.User = { _id: decoded.id };
+      req.user = { _id: decoded.id };
       next();
     } catch (error) {
       return res.status(401).json({ success: false, message: 'Não autorizado, token inválido' });
     }
   };
-  
-  // Rotas básicas
-  app.get('/', (req, res) => {
-    res.send('API da Lancei Essa funcionando em modo de desenvolvimento!');
-  });
-  
-  // Rota para verificar o status do backend (sem autenticação)
-  app.get('/api/status', (req, res) => {
-    res.json({ 
-      status: 'online', 
-      timestamp: new Date().toISOString(),
-      env: process.env.NODE_ENV
-    });
-  });
-  
-  // Rota para verificar o status da autenticação (requer autenticação)
-  app.get('/api/auth/status', auth, (req, res) => {
-    res.json({ 
-      status: 'authenticated', 
-      User: req.User._id,
-      timestamp: new Date().toISOString()
-    });
-  });
 
   // Rota de registro
   app.post('/api/auth/register', async (req, res) => {
@@ -140,9 +120,9 @@ const startServer = async () => {
       
       if (usingMemoryDb) {
         // Usar banco em memória
-        const UserExists = memoryDb.Users.find(u => u.email === email);
+        const userExists = memoryDb.users.find(u => u.email === email);
         
-        if (UserExists) {
+        if (userExists) {
           return res.status(400).json({
             success: false,
             message: 'Usuário já existe'
@@ -155,7 +135,7 @@ const startServer = async () => {
         
         // Criar novo usuário
         const newUser = {
-          _id: `User_${Date.now()}`,
+          _id: `user_${Date.now()}`,
           name,
           email, 
           password: hashedPassword,
@@ -163,7 +143,7 @@ const startServer = async () => {
         };
         
         // Adicionar ao "banco de dados" em memória
-        memoryDb.Users.push(newUser);
+        memoryDb.users.push(newUser);
         
         // Responder com dados do usuário (sem a senha)
         res.status(201).json({
@@ -178,10 +158,13 @@ const startServer = async () => {
         });
       } else {
         // Usar MongoDB real
-        // Verificar se o usuário já existe
-        const UserExists = await User.findOne({ email });
+        // Importar modelo User quando usando banco real
+        const User = require('./models/User');
         
-        if (UserExists) {
+        // Verificar se o usuário já existe
+        const userExists = await User.findOne({ email });
+        
+        if (userExists) {
           return res.status(400).json({
             success: false,
             message: 'Usuário já existe'
@@ -189,22 +172,22 @@ const startServer = async () => {
         }
         
         // Criar novo usuário no MongoDB
-        const newUser = await User.create({
+        const user = await User.create({
           name,
           email,
           password, // O modelo User já faz o hash da senha
           role: role || 'viewer'
         });
         
-        if (newUser) {
+        if (user) {
           res.status(201).json({
             success: true,
             data: {
-              _id: newUser._id,
-              name: newUser.name,
-              email: newUser.email,
-              role: newUser.role,
-              token: generateToken(newUser._id)
+              _id: user._id,
+              name: user.name,
+              email: user.email,
+              role: user.role,
+              token: generateToken(user._id)
             }
           });
         } else {
@@ -231,7 +214,7 @@ const startServer = async () => {
       
       if (usingMemoryDb) {
         // Usar banco em memória
-        const user = memoryDb.Users.find(u => u.email === email);
+        const user = memoryDb.users.find(u => u.email === email);
         
         if (user && await bcrypt.compare(password, user.password)) {
           // Usuário encontrado e senha correta
@@ -264,6 +247,8 @@ const startServer = async () => {
         }
       } else {
         // Usar MongoDB real
+        const User = require('./models/User');
+        
         // Buscar usuário no MongoDB
         const user = await User.findOne({ email });
         
@@ -312,14 +297,14 @@ const startServer = async () => {
     try {
       if (usingMemoryDb) {
         // Usar banco em memória
-        const user = memoryDb.Users.find(u => u._id === req.User._id);
+        const user = memoryDb.users.find(u => u._id === req.user._id);
         
         if (user) {
           // Omitir a senha
-          const { password, ...UserWithoutPassword } = user;
+          const { password, ...userWithoutPassword } = user;
           res.json({
             success: true,
-            data: UserWithoutPassword
+            data: userWithoutPassword
           });
         } else {
           res.status(404).json({
@@ -329,7 +314,9 @@ const startServer = async () => {
         }
       } else {
         // Usar MongoDB real
-        const user = await User.findById(req.User._id).select('-password');
+        const User = require('./models/User');
+        
+        const user = await User.findById(req.user._id).select('-password');
         
         if (user) {
           res.json({
@@ -454,7 +441,7 @@ const startServer = async () => {
       
       // Usar o serviço do YouTube real para obter a URL de autenticação
       const { google } = require('googleapis');
-      const UserId = req.User._id;
+      const userId = req.user._id;
       
       // Criar cliente OAuth2
       const oauth2Client = new google.auth.OAuth2(
@@ -475,7 +462,7 @@ const startServer = async () => {
         access_type: 'offline',
         scope: SCOPES,
         include_granted_scopes: true,
-        state: UserId.toString() // Passar ID do usuário como state
+        state: userId.toString() // Passar ID do usuário como state
       });
       
       console.log('[YouTube Auth] URL de autenticação real gerada');
@@ -695,14 +682,15 @@ const startServer = async () => {
   const activeTokens = {};
   
   // Função auxiliar para obter o ID da empresa associada ao usuário
-  async function getCompanyIdForUser(UserId) {
+  async function getCompanyIdForUser(userId) {
     try {
       if (usingMemoryDb) {
         // Em modo de memória, retornar um ID fixo
         return 'company_' + Date.now();
       } else {
         // Buscar do banco de dados real
-        const user = await User.findById(UserId);
+        const User = require('./models/User');
+        const user = await User.findById(userId);
         
         if (user && user.company) {
           return user.company;
@@ -719,7 +707,7 @@ const startServer = async () => {
               name: 'Empresa Padrão',
               domain: 'default.com',
               industry: 'Tecnologia',
-              createdBy: UserId
+              createdBy: userId
             });
             return newCompany._id;
           }
@@ -736,7 +724,7 @@ const startServer = async () => {
   app.post('/api/youtube/exchange-code', auth, async (req, res) => {
     try {
       const { code } = req.body;
-      const UserId = req.User._id;
+      const userId = req.user._id;
       
       if (!code) {
         return res.status(400).json({
@@ -745,7 +733,7 @@ const startServer = async () => {
         });
       }
       
-      console.log(`[YouTube Auth] Processando código de autorização para usuário ${UserId}`);
+      console.log(`[YouTube Auth] Processando código de autorização para usuário ${userId}`);
       
       // Usar as mesmas credenciais configuradas no ambiente
       const clientId = process.env.YOUTUBE_CLIENT_ID;
@@ -763,7 +751,7 @@ const startServer = async () => {
       // Salvar token no sistema (simulado para desenvolvimento)
       activeTokens.youtube = {
         ...simulatedTokens,
-        UserId: UserId,
+        userId: userId,
         created_at: new Date().toISOString()
       };
       
@@ -772,12 +760,13 @@ const startServer = async () => {
       // Atualizar status de conexão do usuário
       if (!usingMemoryDb) {
         try {
-          await User.findByIdAndUpdate(UserId, {
+          const User = require('./models/User');
+          await User.findByIdAndUpdate(userId, {
             'socialConnections.youtube.connected': true,
             'socialConnections.youtube.lastConnected': Date.now()
           });
-        } catch (UserUpdateError) {
-          console.error('[YouTube Auth] Erro ao atualizar status do usuário:', UserUpdateError);
+        } catch (userUpdateError) {
+          console.error('[YouTube Auth] Erro ao atualizar status do usuário:', userUpdateError);
         }
       }
       
@@ -814,8 +803,8 @@ const startServer = async () => {
       }
       
       // Se não temos um usuário (state vazio), usar um padrão para desenvolvimento
-      let UserId = state || 'User123';
-      console.log(`[OAuth2Callback] User ID extraído do state: ${UserId}`);
+      let userId = state || 'user123';
+      console.log(`[OAuth2Callback] User ID extraído do state: ${userId}`);
       
       // Preparar token de simulação para desenvolvimento
       // Útil quando APIs falham, mas queremos simular sucesso
@@ -829,7 +818,7 @@ const startServer = async () => {
       // Mesmo em ambiente de BD real, armazenar em memória para fallback
       activeTokens.youtube = {
         ...simulatedTokens,
-        UserId: UserId,
+        userId: userId,
         created_at: new Date().toISOString()
       };
       
@@ -846,7 +835,7 @@ const startServer = async () => {
           const YouTubeToken = require('./models/YouTubeToken');
           
           const result = await YouTubeToken.findOneAndUpdate(
-            { User: UserId },
+            { user: userId },
             { 
               access_token: tokenData.access_token,
               refresh_token: tokenData.refresh_token,
@@ -866,7 +855,7 @@ const startServer = async () => {
             const YouTubeToken = require('./models/YouTubeToken');
             
             const result = await YouTubeToken.findOneAndUpdate(
-              { User: UserId },
+              { user: userId },
               simulatedTokens,
               { new: true, upsert: true }
             );
@@ -966,7 +955,7 @@ const startServer = async () => {
   app.post('/api/youtube/exchange-code', auth, async (req, res) => {
     try {
       const { code } = req.body;
-      const UserId = req.User._id;
+      const userId = req.user._id;
       
       if (!code) {
         return res.status(400).json({
@@ -975,7 +964,7 @@ const startServer = async () => {
         });
       }
       
-      console.log(`[YouTube Auth] Processando código de autorização real para usuário ${UserId}`);
+      console.log(`[YouTube Auth] Processando código de autorização real para usuário ${userId}`);
       
       // Configurar cliente OAuth2
       const { google } = require('googleapis');
@@ -1031,10 +1020,10 @@ const startServer = async () => {
           
           // Adicionar campo company (obrigatório no modelo)
           // Como é apenas para teste, usaremos um valor fixo temporário (em produção, esta deveria ser a empresa real do usuário)
-          const companyId = await getCompanyIdForUser(UserId);
+          const companyId = await getCompanyIdForUser(userId);
           
           const result = await YouTubeToken.findOneAndUpdate(
-            { User: UserId },
+            { user: userId },
             { 
               access_token: tokenData.access_token,
               refresh_token: tokenData.refresh_token,
@@ -1054,7 +1043,7 @@ const startServer = async () => {
           // Armazenar em memória como fallback
           activeTokens.youtube = {
             ...tokenData,
-            UserId,
+            userId,
             created_at: new Date().toISOString()
           };
         }
@@ -1062,16 +1051,17 @@ const startServer = async () => {
         // Salvar em memória
         activeTokens.youtube = {
           ...tokenData,
-          UserId,
+          userId,
           created_at: new Date().toISOString()
         };
-        console.log('[YouTube Auth] Token real salvo em memória para o usuário:', UserId);
+        console.log('[YouTube Auth] Token real salvo em memória para o usuário:', userId);
       }
       
       // Atualizar o status de conexão do usuário
       if (!usingMemoryDb) {
         try {
-          await User.findByIdAndUpdate(UserId, {
+          const User = require('./models/User');
+          await User.findByIdAndUpdate(userId, {
             'socialConnections.youtube.connected': true,
             'socialConnections.youtube.lastConnected': Date.now(),
             'socialConnections.youtube.isDemo': false // Indicar que não é demonstração
@@ -1101,7 +1091,7 @@ const startServer = async () => {
   
   // Verificar conexão com YouTube
   app.get('/api/youtube/check-connection', auth, async (req, res) => {
-    const UserId = req.User._id;
+    const userId = req.user._id;
     
     try {
       if (!usingMemoryDb) {
@@ -1109,7 +1099,7 @@ const startServer = async () => {
         const YouTubeToken = require('./models/YouTubeToken');
         
         // Incluir campos sensíveis com select explícito
-        const tokenDoc = await YouTubeToken.findOne({ User: UserId })
+        const tokenDoc = await YouTubeToken.findOne({ user: userId })
           .select('+access_token +refresh_token');
         
         if (!tokenDoc) {
@@ -1127,11 +1117,11 @@ const startServer = async () => {
         if (isExpired) {
           try {
             // Tentar renovar o token
-            const renewed = await tokenRefresher.refreshToken(UserId, 'youtube');
+            const renewed = await tokenRefresher.refreshToken(userId, 'youtube');
             
             if (renewed) {
               // Buscar token renovado
-              const updatedToken = await YouTubeToken.findOne({ User: UserId });
+              const updatedToken = await YouTubeToken.findOne({ user: userId });
               
               return res.json({
                 success: true,
@@ -1152,6 +1142,21 @@ const startServer = async () => {
             channel_id: tokenDoc.channel_id,
             message: 'Token expirado e não foi possível renovar'
           });
+        }
+        
+        // Verificar se temos acesso aos campos sensíveis
+        if (!tokenDoc.access_token || !tokenDoc.refresh_token) {
+          console.log('Tentando obter campos sensíveis');
+          try {
+            const fullToken = await YouTubeToken.findById(tokenDoc._id)
+              .select('+access_token +refresh_token');
+              
+            if (fullToken) {
+              tokenDoc = fullToken;
+            }
+          } catch (selectError) {
+            console.error('Erro ao selecionar campos sensíveis:', selectError);
+          }
         }
         
         // Token válido - tentar obter informações do canal
@@ -1263,13 +1268,13 @@ const startServer = async () => {
   
   // Canal do YouTube
   app.get('/api/youtube/channel/stats', auth, async (req, res) => {
-    const UserId = req.User._id;
+    const userId = req.user._id;
     
     try {
       if (!usingMemoryDb) {
         // Usar serviço real
         try {
-          const channelData = await youtubeService.getChannelStats(UserId);
+          const channelData = await youtubeService.getChannelStats(userId);
           
           return res.json({
             success: true,
@@ -1336,205 +1341,236 @@ const startServer = async () => {
   
   // Endpoint para obter métricas do YouTube
   app.get('/api/youtube/metrics', auth, async (req, res) => {
-    const { forceReal = 'false' } = req.query;
+    const userId = req.user._id;
+    const { period = '30days', type = 'views' } = req.query;
     
-    // Se forceReal=true, chamar o controlador real
-    if (forceReal === 'true') {
-      console.log(`[YouTube Metrics] Usando controlador REAL para usuário ${req.User._id}`);
-      return youtubeController.getMetrics(req, res);
-    }
-    
-    console.log(`[YouTube Metrics] Usando dados SIMULADOS para usuário ${req.User._id}`);
-    
-    // Dados simulados para desenvolvimento (código existente)
-    const simulatedData = {
-      videos: [
-        { 
-          id: 'video1', 
-          title: 'Episódio 1: Introdução', 
-          thumbnail: 'https://via.placeholder.com/120x90', 
-          publishedAt: '2023-01-15T00:00:00Z',
-          statistics: { views: 1500, likes: 120, comments: 45 }
-        },
-        { 
-          id: 'video2', 
-          title: 'Episódio 2: Crescimento Exponencial', 
-          thumbnail: 'https://via.placeholder.com/120x90', 
-          publishedAt: '2023-02-01T00:00:00Z',
-          statistics: { views: 2200, likes: 180, comments: 65 }
-        },
-        { 
-          id: 'video3', 
-          title: 'Episódio 3: Investimentos', 
-          thumbnail: 'https://via.placeholder.com/120x90', 
-          publishedAt: '2023-02-15T00:00:00Z',
-          statistics: { views: 1800, likes: 150, comments: 55 }
-        }
-      ],
-      totalStats: {
-        views: 5500,
-        likes: 450,
-        comments: 165,
-        subscribers: 1250,
-        videos: 3
-      },
-      chartData: {
-        labels: ['Jan 15', 'Fev 01', 'Fev 15'],
-        views: [1500, 2200, 1800],
-        likes: [120, 180, 150],
-        comments: [45, 65, 55]
-      },
-      channelInfo: {
-        id: 'UC12345',
-        title: 'Lancei Essa Podcast',
-        description: 'Canal oficial do podcast Lancei Essa',
-        thumbnails: {
-          default: { url: 'https://via.placeholder.com/88x88' },
-          medium: { url: 'https://via.placeholder.com/240x240' },
-          high: { url: 'https://via.placeholder.com/800x800' }
-        },
-        statistics: {
-          viewCount: '5500',
-          subscriberCount: '1250',
-          videoCount: '3'
-        },
-        customUrl: '@lanceiesssa'
-      },
-      recentComments: [
-        {
-          id: 'comment1',
-          videoId: 'video1',
-          authorDisplayName: 'Fã do Podcast',
-          authorProfileImageUrl: 'https://via.placeholder.com/48x48',
-          textDisplay: 'Adorei o episódio! Muito informativo.',
-          likeCount: 15,
-          publishedAt: '2023-01-16T10:30:00Z'
-        },
-        {
-          id: 'comment2',
-          videoId: 'video2',
-          authorDisplayName: 'Empreendedor Digital',
-          authorProfileImageUrl: 'https://via.placeholder.com/48x48',
-          textDisplay: 'Excelentes dicas sobre crescimento exponencial!',
-          likeCount: 8,
-          publishedAt: '2023-02-02T14:15:00Z'
-        }
-      ]
-    };
-    
-    return res.json({
-      success: true,
-      data: simulatedData
-    });
-  });
-
-  // Adicionar uma rota dedicada que sempre usa dados reais
-  app.get('/api/youtube/metrics/real', auth, youtubeController.getMetrics);
-
-  // Endpoint para acessar métricas históricas do YouTube
-  app.get('/api/youtube/metrics/history', auth, async (req, res) => {
     try {
-      const UserId = req.User._id;
-      const { days = 30 } = req.query;
-      
-      // Verificar se o usuário tem acesso
-      const YouTubeToken = require('./models/YouTubeToken');
-      const tokenDoc = await YouTubeToken.findOne({ User: UserId });
-      
-      if (!tokenDoc) {
-        return res.status(401).json({
-          success: false,
-          message: 'Você não tem um canal do YouTube conectado'
-        });
-      }
-      
-      // Calcular intervalo de datas
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - parseInt(days));
-      
-      // Buscar métricas históricas
-      const YouTubeMetrics = require('./models/YouTubeMetrics');
-      const metrics = await YouTubeMetrics.find({
-        User: UserId,
-        date: { $gte: startDate, $lte: endDate }
-      }).sort({ date: 1 });
-      
-      if (metrics.length === 0) {
-        // Se não encontrarmos métricas históricas, tentar coletar agora
-        try {
-          const metricsCollector = require('./services/metricsCollector');
-          await metricsCollector.collectYouTubeMetrics(UserId, tokenDoc.company);
-          
-          // Buscar novamente após coleta
-          const freshMetrics = await YouTubeMetrics.find({
-            User: UserId,
-            date: { $gte: startDate, $lte: endDate }
-          }).sort({ date: 1 });
-          
-          if (freshMetrics.length > 0) {
-            // Preparar dados para visualização
-            const historyData = YouTubeMetrics.getMetricsByPeriod(
-              tokenDoc.channel_id,
-              startDate,
-              endDate
-            );
-            
-            return res.json({
-              success: true,
-              data: {
-                metrics: freshMetrics,
-                chartData: historyData
-              }
-            });
-          }
-        } catch (collectionError) {
-          console.error('Erro ao coletar métricas:', collectionError);
+      if (!usingMemoryDb) {
+        // Verificar se o usuário tem token válido
+        const YouTubeToken = require('./models/YouTubeToken');
+        const tokenDoc = await YouTubeToken.findOne({ user: userId })
+          .select('+access_token +refresh_token');
+        
+        if (!tokenDoc) {
+          return res.status(401).json({
+            success: false,
+            message: 'Não autorizado. Conecte-se ao YouTube primeiro.'
+          });
         }
         
-        // Se mesmo após tentar coletar não tivermos dados, retornar vazio
+        // Configurar cliente OAuth2
+        const { google } = require('googleapis');
+        const oauth2Client = new google.auth.OAuth2(
+          process.env.YOUTUBE_CLIENT_ID,
+          process.env.YOUTUBE_CLIENT_SECRET,
+          process.env.YOUTUBE_REDIRECT_URI
+        );
+        
+        // Configurar credenciais
+        oauth2Client.setCredentials({
+          access_token: tokenDoc.access_token,
+          refresh_token: tokenDoc.refresh_token
+        });
+        
+        // Criar cliente YouTube
+        const youtube = google.youtube({
+          version: 'v3',
+          auth: oauth2Client
+        });
+        
+        // Obter lista de vídeos do canal
+        const channelResponse = await youtube.channels.list({
+          part: 'contentDetails',
+          id: tokenDoc.channel_id || 'mine'
+        });
+        
+        if (!channelResponse.data.items || channelResponse.data.items.length === 0) {
+          return res.status(404).json({
+            success: false,
+            message: 'Canal não encontrado'
+          });
+        }
+        
+        const channel = channelResponse.data.items[0];
+        const uploadsPlaylistId = channel.contentDetails.relatedPlaylists.uploads;
+        
+        // Obter vídeos do canal
+        const playlistItemsResponse = await youtube.playlistItems.list({
+          part: 'snippet',
+          playlistId: uploadsPlaylistId,
+          maxResults: 50
+        });
+        
+        const videoIds = playlistItemsResponse.data.items.map(item => item.snippet.resourceId.videoId);
+        
+        // Obter estatísticas dos vídeos
+        const videosResponse = await youtube.videos.list({
+          part: 'statistics,snippet',
+          id: videoIds.join(',')
+        });
+        
+        // Processar dados para exibição em gráficos
+        const metricsData = {
+          videos: [],
+          totalStats: {
+            views: 0,
+            likes: 0,
+            comments: 0,
+            favorites: 0
+          },
+          chartData: {
+            labels: [],
+            views: [],
+            likes: [],
+            comments: []
+          }
+        };
+        
+        // Ordenar vídeos por data (mais recentes primeiro)
+        const sortedVideos = [...videosResponse.data.items];
+        sortedVideos.sort((a, b) => {
+          const dateA = new Date(a.snippet.publishedAt);
+          const dateB = new Date(b.snippet.publishedAt);
+          return dateB - dateA;
+        });
+        
+        // Processar estatísticas de cada vídeo
+        sortedVideos.forEach(video => {
+          const stats = video.statistics;
+          
+          // Adicionar ao total
+          metricsData.totalStats.views += parseInt(stats.viewCount || 0);
+          metricsData.totalStats.likes += parseInt(stats.likeCount || 0);
+          metricsData.totalStats.comments += parseInt(stats.commentCount || 0);
+          metricsData.totalStats.favorites += parseInt(stats.favoriteCount || 0);
+          
+          // Adicionar dados ao gráfico
+          const publishedAt = new Date(video.snippet.publishedAt);
+          const dateLabel = publishedAt.toLocaleDateString('pt-BR');
+          
+          metricsData.chartData.labels.push(dateLabel);
+          metricsData.chartData.views.push(parseInt(stats.viewCount || 0));
+          metricsData.chartData.likes.push(parseInt(stats.likeCount || 0));
+          metricsData.chartData.comments.push(parseInt(stats.commentCount || 0));
+          
+          // Adicionar à lista de vídeos
+          metricsData.videos.push({
+            id: video.id,
+            title: video.snippet.title,
+            thumbnail: video.snippet.thumbnails.medium.url,
+            publishedAt: video.snippet.publishedAt,
+            statistics: {
+              views: parseInt(stats.viewCount || 0),
+              likes: parseInt(stats.likeCount || 0),
+              comments: parseInt(stats.commentCount || 0)
+            }
+          });
+        });
+        
         return res.json({
           success: true,
-          data: {
-            metrics: [],
-            chartData: {
-              labels: [],
-              datasets: {
-                views: [],
-                likes: [],
-                comments: [],
-                subscribers: []
-              }
+          data: metricsData
+        });
+      } else {
+        // Dados simulados para desenvolvimento
+        const simulatedData = {
+          videos: [
+            { 
+              id: 'video1', 
+              title: 'Episódio 1: Introdução', 
+              thumbnail: 'https://via.placeholder.com/120x90', 
+              publishedAt: '2023-01-15T00:00:00Z',
+              statistics: { views: 1500, likes: 120, comments: 45 }
+            },
+            { 
+              id: 'video2', 
+              title: 'Episódio 2: Crescimento Exponencial', 
+              thumbnail: 'https://via.placeholder.com/120x90', 
+              publishedAt: '2023-02-01T00:00:00Z',
+              statistics: { views: 2200, likes: 180, comments: 65 }
+            },
+            { 
+              id: 'video3', 
+              title: 'Episódio 3: Investimentos', 
+              thumbnail: 'https://via.placeholder.com/120x90', 
+              publishedAt: '2023-02-15T00:00:00Z',
+              statistics: { views: 1800, likes: 150, comments: 55 }
             }
+          ],
+          totalStats: {
+            views: 5500,
+            likes: 450,
+            comments: 165,
+            favorites: 25
+          },
+          chartData: {
+            labels: ['Jan 15', 'Fev 01', 'Fev 15'],
+            views: [1500, 2200, 1800],
+            likes: [120, 180, 150],
+            comments: [45, 65, 55]
           }
+        };
+        
+        return res.json({
+          success: true,
+          data: simulatedData
         });
       }
-      
-      // Preparar dados para visualização
-      const chartData = await YouTubeMetrics.getMetricsByPeriod(
-        tokenDoc.channel_id,
-        startDate,
-        endDate
-      );
-      
-      return res.json({
-        success: true,
-        data: {
-          metrics: metrics,
-          chartData: chartData
-        }
-      });
     } catch (error) {
-      console.error('Erro ao obter histórico de métricas:', error);
+      console.error('Erro ao obter métricas do YouTube:', error);
       res.status(500).json({
         success: false,
-        message: 'Erro ao obter histórico de métricas',
+        message: 'Erro ao obter métricas do YouTube',
         error: error.message
       });
     }
   });
   
-  // Rota de métricas gerais
+  // Rota de métricas
+          
+          if (isExpired) {
+            return res.status(401).json({
+              success: false,
+              message: 'Token expirado. Por favor, reconecte sua conta.',
+              expired: true
+            });
+          }
+          
+          // Simulação de dados do canal
+          res.json({
+            success: true,
+            data: {
+              id: activeTokens.youtube.channel_id,
+              title: 'Lancei Essa Podcast',
+              description: 'Canal oficial do podcast Lancei Essa',
+              subscriberCount: 12500,
+              viewCount: 250000,
+              videoCount: 45,
+              token: {
+                createdAt: activeTokens.youtube.created_at,
+                expiresAt: new Date(activeTokens.youtube.expiry_date).toISOString()
+              }
+            }
+          });
+        } else {
+          res.status(401).json({
+            success: false,
+            message: 'Não autenticado no YouTube',
+            connected: false
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao obter estatísticas do canal:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Erro ao obter estatísticas do canal',
+        error: error.message
+      });
+    }
+  });
+  
+  // Rota de métricas
   app.get('/api/metrics', auth, (req, res) => {
     res.json({
       success: true,
@@ -1583,11 +1619,6 @@ const startServer = async () => {
   // Em modo de desenvolvimento, não iniciamos os serviços em segundo plano
   console.log('Serviços em segundo plano desativados no modo de desenvolvimento');
   
-  // Registrar rotas de sincronização do YouTube
-  const youtubeSyncRoutes = require('./routes/youtube/syncRoutes');
-  app.use('/api/youtube/sync', youtubeSyncRoutes);
-  console.log('✅ Rotas de sincronização do YouTube ativadas: /api/youtube/sync');
-  
   // Iniciar o serviço de verificação de saúde dos tokens
   try {
     const autoHealthCheck = require('./services/tokenManager/autoHealthCheck');
@@ -1606,70 +1637,8 @@ const startServer = async () => {
     // Iniciar o atualizador de tokens (a cada 30 minutos)
     tokenRefresher.scheduleTokenRefresh(30 * 60 * 1000);
     console.log('✅ Sistema de gerenciamento de tokens ativado');
-    
-    // Inicializar sistema de sincronização do YouTube
-    try {
-      const youtubeSyncInitializer = require('./services/youtube/initializer');
-      youtubeSyncInitializer.initialize();
-      console.log('✅ Sistema de sincronização do YouTube ativado');
-    } catch (error) {
-      console.warn('⚠️ Sistema de sincronização do YouTube não pode ser iniciado:', error.message);
-    }
   });
 };
-
-// Tratamento de sinais de encerramento
-process.on('SIGTERM', () => {
-  console.log('[Server] Recebido sinal SIGTERM, desligando serviços...');
-  
-  // Desligar o sistema de sincronização do YouTube
-  try {
-    const youtubeSyncInitializer = require('./services/youtube/initializer');
-    youtubeSyncInitializer.shutdown();
-    console.log('[Server] Sistema de sincronização do YouTube desligado');
-  } catch (shutdownError) {
-    console.error('[Server] Erro ao desligar sistema de sincronização:', shutdownError);
-  }
-  
-  // Fechar conexão com o MongoDB
-  if (mongoose.connection.readyState) {
-    mongoose.connection.close().then(() => {
-      console.log('[Server] Conexão MongoDB fechada com sucesso');
-      process.exit(0);
-    }).catch(err => {
-      console.error('[Server] Erro ao fechar conexão MongoDB:', err);
-      process.exit(1);
-    });
-  } else {
-    process.exit(0);
-  }
-});
-
-process.on('SIGINT', () => {
-  console.log('[Server] Recebido sinal SIGINT, desligando serviços...');
-  
-  // Desligar o sistema de sincronização do YouTube
-  try {
-    const youtubeSyncInitializer = require('./services/youtube/initializer');
-    youtubeSyncInitializer.shutdown();
-    console.log('[Server] Sistema de sincronização do YouTube desligado');
-  } catch (shutdownError) {
-    console.error('[Server] Erro ao desligar sistema de sincronização:', shutdownError);
-  }
-  
-  // Fechar conexão com o MongoDB
-  if (mongoose.connection.readyState) {
-    mongoose.connection.close().then(() => {
-      console.log('[Server] Conexão MongoDB fechada com sucesso');
-      process.exit(0);
-    }).catch(err => {
-      console.error('[Server] Erro ao fechar conexão MongoDB:', err);
-      process.exit(1);
-    });
-  } else {
-    process.exit(0);
-  }
-});
 
 // Iniciar o servidor
 startServer().catch(err => console.error('Erro ao iniciar servidor:', err));
